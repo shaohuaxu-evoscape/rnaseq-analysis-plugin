@@ -5,7 +5,7 @@ Claude Code plugin for RNA-seq time-series differential analysis. Config-driven 
 ## Install
 
 ```bash
-claude /plugin add evoscapebio/rnaseq-analysis-plugin
+claude /plugin add shaohuaxu-evoscape/rnaseq-analysis-plugin
 ```
 
 ## Quick Start
