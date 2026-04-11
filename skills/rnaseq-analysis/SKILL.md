@@ -64,7 +64,14 @@ Based on the detection results above, choose the corresponding behavior:
 
 ### Case A: New Project (analysis_case.yaml is NOT_FOUND)
 
-Automatically enter the interactive setup wizard. Read [`references/rnaseq-setup-wizard.md`](references/rnaseq-setup-wizard.md) and follow the 7-round protocol.
+**First, scaffold the project directory structure:**
+
+```bash
+mkdir -p configs inputs/ref results
+cp ${CLAUDE_PLUGIN_ROOT}/configs/analysis_case.template.yaml configs/analysis_case.yaml
+```
+
+Then enter the interactive setup wizard. Read [`references/rnaseq-setup-wizard.md`](references/rnaseq-setup-wizard.md) and follow the 8-round protocol to fill in the config.
 
 ### Case B: Configured but Not Run (yaml exists, no results)
 

@@ -64,10 +64,12 @@ After installing the plugin, create a new analysis project:
 
 ```bash
 mkdir my-rnaseq-project && cd my-rnaseq-project
-mkdir -p configs inputs results
 ```
 
-Then invoke `/rnaseq-analysis` to start the interactive setup wizard.
+Then invoke `/rnaseq-analysis`. The skill automatically:
+1. Scaffolds the directory structure (`configs/`, `inputs/`, `results/`)
+2. Copies the config template
+3. Launches an interactive wizard to fill in your project details
 
 ## Requirements
 
