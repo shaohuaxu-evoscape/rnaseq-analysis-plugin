@@ -1,0 +1,27 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "rnaseq-analysis-plugin",
+  "description": "RNA-seq differential analysis pipeline for Claude Code — interactive setup, DESeq2, enrichment, clustering",
+  "owner": {
+    "name": "EvoScape Bio"
+  },
+  "metadata": {
+    "description": "Config-driven RNA-seq analysis pipeline with 17 steps, interactive setup wizard, and per-step CLI tools"
+  },
+  "plugins": [
+    {
+      "name": "rnaseq-analysis",
+      "source": "./",
+      "description": "RNA-seq time-series differential analysis — DESeq2, GO/KEGG enrichment, GSEA, clustering",
+      "version": "1.0.0",
+      "category": "bioinformatics",
+      "tags": [
+        "rnaseq",
+        "transcriptomics",
+        "deseq2",
+        "enrichment",
+        "pipeline"
+      ]
+    }
+  ]
+}

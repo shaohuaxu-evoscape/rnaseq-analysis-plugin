@@ -1,0 +1,23 @@
+{
+  "name": "rnaseq-analysis",
+  "version": "1.0.0",
+  "description": "RNA-seq time-series differential analysis pipeline — DESeq2 Wald test, GO/KEGG enrichment, GSEA, K-means clustering. Config-driven, 17 analysis steps, interactive setup wizard.",
+  "author": {
+    "name": "EvoScape Bio"
+  },
+  "homepage": "https://github.com/evoscapebio/rnaseq-analysis-plugin",
+  "repository": "https://github.com/evoscapebio/rnaseq-analysis-plugin",
+  "license": "MIT",
+  "keywords": [
+    "rnaseq",
+    "rna-seq",
+    "transcriptomics",
+    "differential-expression",
+    "deseq2",
+    "go-enrichment",
+    "kegg",
+    "gsea",
+    "bioinformatics",
+    "pipeline"
+  ]
+}

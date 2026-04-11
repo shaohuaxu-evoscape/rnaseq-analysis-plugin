@@ -1,0 +1,112 @@
+# RNA-seq Pipeline Step Registry
+#
+# Single source of truth for all pipeline steps.
+# module_path values are relative to scripts/steps/ (loaded by runner.py).
+# To add a new step: create scripts/steps/{name}.py with run(cfg) and add here.
+
+modules:
+  preprocessing:
+    display_name: "Preprocessing"
+    module_number: 0
+    public: false
+    steps:
+      - id: "0a"
+        module_path: "hisat2_index"
+        display_name: "HISAT2 Index"
+      - id: "0b"
+        module_path: "fastp"
+        display_name: "Fastp QC/Trim"
+      - id: "0c"
+        module_path: "hisat2_align"
+        display_name: "HISAT2 Alignment"
+      - id: "0d"
+        module_path: "htseq_count"
+        display_name: "HTSeq Count"
+
+  normalization:
+    display_name: "Normalization"
+    module_number: 1
+    public: true
+    steps:
+      - id: "1a"
+        module_path: "gene_filtering"
+        display_name: "Gene Filtering"
+
+  sample_analysis:
+    display_name: "Sample Analysis"
+    module_number: 2
+    public: true
+    steps:
+      - id: "2a"
+        module_path: "expression"
+        display_name: "Expression"
+        depends_on: ["1a"]
+      - id: "2b"
+        module_path: "correlation"
+        display_name: "Correlation Analysis"
+        depends_on: ["1a"]
+      - id: "2c"
+        module_path: "pca"
+        display_name: "PCA"
+        depends_on: ["1a"]
+      - id: "2d"
+        module_path: "dendrogram"
+        display_name: "Sample Dendrogram"
+        depends_on: ["1a"]
+
+  differential_analysis:
+    display_name: "Differential Analysis"
+    module_number: 3
+    public: true
+    steps:
+      - id: "3a"
+        module_path: "de_screening"
+        display_name: "DE Screening"
+        depends_on: ["1a"]
+      - id: "3b"
+        module_path: "go_enrichment"
+        display_name: "GO Enrichment"
+        depends_on: ["3a"]
+      - id: "3c"
+        module_path: "kegg_enrichment"
+        display_name: "KEGG Enrichment"
+        depends_on: ["3a"]
+      - id: "3d"
+        module_path: "gsea"
+        display_name: "GSEA"
+        depends_on: ["3a"]
+
+  advanced_analysis:
+    display_name: "Advanced Analysis"
+    module_number: 4
+    public: true
+    steps:
+      - id: "4a"
+        module_path: "transporter_aminopeptidase"
+        display_name: "Transporter & Aminopeptidase"
+        depends_on: ["3a"]
+      - id: "4b"
+        module_path: "temporal_causality"
+        display_name: "Temporal Causality"
+        depends_on: ["3a"]
+      - id: "4c"
+        module_path: "heterologous_genes"
+        display_name: "Heterologous Gene Analysis"
+        depends_on: ["1a"]
+      - id: "4d"
+        module_path: "fermentation_overview"
+        display_name: "Fermentation Overview"
+
+  cluster_analysis:
+    display_name: "Cluster Analysis"
+    module_number: 5
+    public: true
+    steps:
+      - id: "5a"
+        module_path: "gene_clustering"
+        display_name: "Gene Clustering"
+        depends_on: ["1a"]
+      - id: "5b"
+        module_path: "cluster_deepdive"
+        display_name: "Cluster Deep-Dive"
+        depends_on: ["5a"]
