@@ -1,0 +1,214 @@
+# Remote Preprocessing
+
+> **Prerequisite:** Read [`../SKILL.md`](../SKILL.md) for pipeline overview.
+
+Execute preprocessing steps (0a-0d) on a remote server via MCP remote-linux. This is triggered when `remote.enabled` is `true` in `configs/analysis_case.yaml` and no local gene_counts.tsv exists.
+
+## When to Use
+
+- User has raw FASTQ data on a remote server
+- Bioinformatics tools (fastp, hisat2, samtools, htseq-count) are installed on the remote server, not locally
+- `remote.enabled: true` is set in the config
+
+## Configuration
+
+Read the `remote` section from `configs/analysis_case.yaml`:
+
+```yaml
+remote:
+  enabled: true
+  host: "bioalgo-ws01"              # Remote hostname
+  user: "shaohua"                   # SSH username
+  data_dir: "/data/rna/20260313"    # Remote path to raw FASTQ files
+  work_dir: "/home/shaohua/rnaseq"  # Remote working directory
+  reference_genome: "/ref/A316.v1.fa"
+  reference_gtf: "/ref/A316.v1.gtf"
+  threads: 8
+```
+
+## Pre-flight Checks
+
+Before running any preprocessing, verify the remote environment. Use `mcp__remote-linux__Bash` for all remote commands.
+
+### 1. Check connectivity
+
+```bash
+echo "Connected to $(hostname) as $(whoami)"
+```
+
+### 2. Check required tools
+
+```bash
+which fastp hisat2 samtools htseq-count
+```
+
+If any tool is missing, stop and inform the user.
+
+### 3. Check input data
+
+```bash
+# Verify reference files exist
+ls -la {reference_genome} {reference_gtf}
+
+# List available FASTQ files
+ls {data_dir}/*.R1.fq.gz 2>/dev/null | head -20
+```
+
+### 4. Create working directory
+
+```bash
+mkdir -p {work_dir}/{batch_id}/01_preprocessing/{hisat2_index,clean_fastq,fastp_reports,alignment,gene_counts/sample_counts}
+```
+
+## Step 0a: HISAT2 Index
+
+Build the genome index. Skip if index files already exist.
+
+```bash
+INDEX_PREFIX="{work_dir}/{batch_id}/01_preprocessing/hisat2_index/$(basename {reference_genome} .fa)"
+
+# Check if index already exists
+if [ -f "${INDEX_PREFIX}.1.ht2" ]; then
+    echo "HISAT2 index already exists, skipping"
+else
+    # Extract splice sites and exons
+    hisat2_extract_splice_sites.py {reference_gtf} > ${INDEX_PREFIX}.splice_sites.txt
+    hisat2_extract_exons.py {reference_gtf} > ${INDEX_PREFIX}.exons.txt
+
+    # Build index
+    hisat2-build -p {threads} \
+        --ss ${INDEX_PREFIX}.splice_sites.txt \
+        --exon ${INDEX_PREFIX}.exons.txt \
+        {reference_genome} ${INDEX_PREFIX}
+fi
+```
+
+## Step 0b: Fastp QC/Trim
+
+Run fastp for each sample. Discover samples from the data directory.
+
+```bash
+# Discover sample IDs
+for r1 in {data_dir}/*.R1.fq.gz; do
+    SAMPLE=$(basename "$r1" .R1.fq.gz)
+    R2="{data_dir}/${SAMPLE}.R2.fq.gz"
+    OUT_DIR="{work_dir}/{batch_id}/01_preprocessing"
+
+    echo "Processing $SAMPLE ..."
+    fastp \
+        -i "$r1" -I "$R2" \
+        -o "${OUT_DIR}/clean_fastq/${SAMPLE}.R1.clean.fq.gz" \
+        -O "${OUT_DIR}/clean_fastq/${SAMPLE}.R2.clean.fq.gz" \
+        --json "${OUT_DIR}/fastp_reports/${SAMPLE}.fastp.json" \
+        --html "${OUT_DIR}/fastp_reports/${SAMPLE}.fastp.html" \
+        --cut_front --cut_tail --cut_window_size 4 \
+        --cut_mean_quality 20 \
+        --qualified_quality_phred 20 \
+        --unqualified_percent_limit 40 \
+        --length_required 50 \
+        --thread {threads}
+done
+```
+
+For large numbers of samples, process in batches and report progress.
+
+## Step 0c: HISAT2 Alignment
+
+Align each sample to the genome index.
+
+```bash
+INDEX_PREFIX="{work_dir}/{batch_id}/01_preprocessing/hisat2_index/$(basename {reference_genome} .fa)"
+OUT_DIR="{work_dir}/{batch_id}/01_preprocessing"
+
+for r1 in ${OUT_DIR}/clean_fastq/*.R1.clean.fq.gz; do
+    SAMPLE=$(basename "$r1" .R1.clean.fq.gz)
+    R2="${OUT_DIR}/clean_fastq/${SAMPLE}.R2.clean.fq.gz"
+
+    echo "Aligning $SAMPLE ..."
+    hisat2 -p {threads} --dta -x ${INDEX_PREFIX} \
+        -1 "$r1" -2 "$R2" \
+        2> "${OUT_DIR}/alignment/${SAMPLE}.hisat2.log" \
+    | samtools sort -@ {threads} -o "${OUT_DIR}/alignment/${SAMPLE}.sorted.bam"
+
+    samtools index "${OUT_DIR}/alignment/${SAMPLE}.sorted.bam"
+done
+```
+
+## Step 0d: HTSeq Count
+
+Quantify gene expression for each sample, then combine into a matrix.
+
+```bash
+OUT_DIR="{work_dir}/{batch_id}/01_preprocessing"
+GTF="{reference_gtf}"
+
+# Count per sample
+for bam in ${OUT_DIR}/alignment/*.sorted.bam; do
+    SAMPLE=$(basename "$bam" .sorted.bam)
+    echo "Counting $SAMPLE ..."
+    htseq-count \
+        --format=bam --order=pos --mode=union \
+        --stranded=no --type=exon --idattr=gene_id \
+        "$bam" "$GTF" \
+    > "${OUT_DIR}/gene_counts/sample_counts/${SAMPLE}.tsv"
+done
+
+# Combine into matrix
+echo "Combining counts..."
+python3 -c "
+import os, pandas as pd
+counts_dir = '${OUT_DIR}/gene_counts/sample_counts'
+frames = {}
+for f in sorted(os.listdir(counts_dir)):
+    if not f.endswith('.tsv'): continue
+    name = f.replace('.tsv', '')
+    df = pd.read_csv(os.path.join(counts_dir, f), sep='\t', header=None, names=['gene', name], index_col=0)
+    df = df[~df.index.str.startswith('__')]
+    frames[name] = df[name]
+combined = pd.DataFrame(frames)
+combined.index.name = 'gene_id'
+combined.to_csv('${OUT_DIR}/gene_counts/gene_counts.tsv', sep='\t')
+print(f'Combined {len(frames)} samples, {len(combined)} genes')
+"
+```
+
+## Pull Results Back to Local
+
+After all steps complete, use **local Bash** (not remote) to pull the gene_counts.tsv back:
+
+```bash
+# Create local directory
+mkdir -p results/shared/{batch_id}/01_preprocessing/gene_counts
+
+# Pull gene counts
+scp {user}@{host}:{work_dir}/{batch_id}/01_preprocessing/gene_counts/gene_counts.tsv \
+    results/shared/{batch_id}/01_preprocessing/gene_counts/
+
+# Optionally pull fastp reports for QC review
+mkdir -p results/shared/{batch_id}/01_preprocessing/fastp_reports
+scp {user}@{host}:{work_dir}/{batch_id}/01_preprocessing/fastp_reports/*.json \
+    results/shared/{batch_id}/01_preprocessing/fastp_reports/
+```
+
+## Post-Preprocessing
+
+Verify the gene_counts.tsv:
+
+```bash
+head -2 results/shared/{batch_id}/01_preprocessing/gene_counts/gene_counts.tsv
+wc -l results/shared/{batch_id}/01_preprocessing/gene_counts/gene_counts.tsv
+```
+
+Then proceed with local analysis:
+
+```
+python ${CLAUDE_PLUGIN_ROOT}/scripts/rnaseq_run.py -c configs/analysis_case.yaml --steps 1a-5b
+```
+
+## Error Handling
+
+- **Connection failed**: Check MCP remote-linux configuration in Claude Code settings
+- **Tool not found**: Ask user to install the missing tool on the remote server
+- **FASTQ not found**: Verify `remote.data_dir` path and file naming convention (`*.R1.fq.gz`)
+- **Disk space**: Check `df -h {work_dir}` before starting — preprocessing generates large intermediate files
+- **Partial failure**: Each step can be re-run independently. Check which samples completed and resume from there.

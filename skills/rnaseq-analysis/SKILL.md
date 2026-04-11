@@ -36,6 +36,11 @@ User request: $ARGUMENTS
 !`echo "=== Reference genomes ===" && find inputs/ref -name "*.fa" 2>/dev/null | head -5 || echo "none"; echo "=== Gene counts ===" && find results/shared -name "gene_counts.tsv" 2>/dev/null | head -5 || echo "none"; echo "=== FASTQ dirs ===" && ls -d inputs/fastq*/ inputs/raw*/ 2>/dev/null | head -5 || echo "none"`
 ```
 
+### Remote Preprocessing Config
+```
+!`python3 -c "import yaml; c=yaml.safe_load(open('configs/analysis_case.yaml')); r=c.get('remote',{}); print(f'enabled={r.get(\"enabled\",False)} host={r.get(\"host\",\"\")} data_dir={r.get(\"data_dir\",\"\")}') if r else print('NOT_CONFIGURED')" 2>/dev/null || echo "NOT_CONFIGURED"`
+```
+
 ---
 
 ## Plugin Scripts
@@ -75,7 +80,9 @@ Then enter the interactive setup wizard. Read [`references/rnaseq-setup-wizard.m
 
 ### Case B: Configured but Not Run (yaml exists, no results)
 
-Show a config summary and suggest:
+**Check if remote preprocessing is needed:** If `remote.enabled = true` AND no gene_counts.tsv exists locally, read [`references/rnaseq-remote-preprocessing.md`](references/rnaseq-remote-preprocessing.md) and execute remote preprocessing first. After pulling results back, continue with local analysis.
+
+**Otherwise** (local mode or gene_counts already available), show config summary and suggest:
 ```
 Configuration is ready. Suggestions:
   python ${CLAUDE_PLUGIN_ROOT}/scripts/rnaseq_run.py -c configs/analysis_case.yaml --steps 1a-5b --dry-run
@@ -102,7 +109,7 @@ Handle the request directly by reading the relevant reference file below.
 - **Analysis Case**: A pairwise DE comparison defined by `configs/analysis_case.yaml`
 - **Module**: A group of related analysis steps (6 modules, numbered 0-5)
 - **Step**: An atomic analysis unit within a module, exports `run(cfg)`
-- **Hidden Preprocessing**: Steps 0a-0d auto-trigger when gene_counts.tsv is missing
+- **Hidden Preprocessing**: Steps 0a-0d auto-trigger when gene_counts.tsv is missing. When `remote.enabled` is true, these run on a remote server via MCP remote-linux — see [`Remote Preprocessing`](references/rnaseq-remote-preprocessing.md)
 - **Config**: `configs/analysis_case.yaml` is the sole user-editable entry point
 
 ## Pipeline Architecture
@@ -127,6 +134,7 @@ Module 5: Gene Clustering -> Cluster Deep-Dive
 | [`Setup Wizard`](references/rnaseq-setup-wizard.md) | Interactive project setup — generates analysis_case.yaml |
 | [`Run Pipeline`](references/rnaseq-run-pipeline.md) | Execute analysis steps (full, partial, dry-run, resume) |
 | [`Grid Search`](references/rnaseq-grid-search.md) | Parameter optimization for filtering and preprocessing |
+| [`Remote Preprocessing`](references/rnaseq-remote-preprocessing.md) | Run steps 0a-0d on remote server via MCP remote-linux |
 
 ---
 

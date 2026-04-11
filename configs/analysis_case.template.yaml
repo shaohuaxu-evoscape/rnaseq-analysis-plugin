@@ -5,6 +5,20 @@
 #
 # See the Config Reference in the rnaseq-analysis plugin for full field docs.
 
+# ── Remote Preprocessing ─────────────────────────────────────────────────────
+# When enabled, preprocessing (steps 0a-0d) runs on a remote server via
+# MCP remote-linux instead of locally. Requires mcp__remote-linux configured
+# in Claude Code settings.
+remote:
+  enabled: false
+  host: ""                          # Remote hostname or IP
+  user: ""                          # SSH username
+  data_dir: ""                      # Remote path to raw FASTQ data directory
+  work_dir: ""                      # Remote working directory for preprocessing outputs
+  reference_genome: ""              # Remote path to reference genome .fa
+  reference_gtf: ""                 # Remote path to gene annotation .gtf
+  threads: 8                        # Threads for remote tools (fastp, hisat2, samtools)
+
 # ── Run settings ─────────────────────────────────────────────────────────────
 run_name: "my_analysis"
 

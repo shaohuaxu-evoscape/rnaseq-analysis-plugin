@@ -42,7 +42,35 @@ Update `project.name`, `project.organism`, `project.strain` in the config.
 Scan local `inputs/` and `results/shared/`:
 - Found `.fa` + `.gtf` -> auto-fill `paths.reference_genome` and `paths.reference_gtf`
 - Found `gene_counts.tsv` -> auto-fill `batches.batch1.gene_counts`
-- None found -> ask for the gene counts file path or FASTQ directory path
+- None found -> proceed to Round 2b (remote preprocessing)
+
+## Round 2b: Remote Preprocessing (if no local gene_counts)
+
+If no local gene_counts.tsv found, ask:
+
+1. "Do you need to run preprocessing on a remote server?" (yes/no)
+2. If yes, ask for:
+   - Remote host (hostname or IP)
+   - SSH username
+   - Remote path to raw FASTQ data directory
+   - Remote working directory for outputs
+   - Remote path to reference genome (.fa)
+   - Remote path to gene annotation (.gtf)
+
+Update the `remote` section in config:
+```yaml
+remote:
+  enabled: true
+  host: "bioalgo-ws01"
+  user: "shaohua"
+  data_dir: "/data/rna/20260313"
+  work_dir: "/home/shaohua/rnaseq"
+  reference_genome: "/ref/A316.v1.fa"
+  reference_gtf: "/ref/A316.v1.gtf"
+  threads: 8
+```
+
+If the user answers "no", ask for a local gene counts file path or FASTQ directory path instead.
 
 ## Round 3: Condition Definition
 
