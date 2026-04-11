@@ -19,5 +19,14 @@
     "gsea",
     "bioinformatics",
     "pipeline"
-  ]
+  ],
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "cd ~/.claude/plugins/marketplaces/rnaseq-analysis-plugin && git pull --quiet 2>/dev/null || true",
+        "timeout": 10
+      }
+    ]
+  }
 }
