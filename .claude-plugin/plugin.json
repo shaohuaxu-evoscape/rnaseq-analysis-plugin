@@ -5,8 +5,8 @@
   "author": {
     "name": "EvoScape Bio"
   },
-  "homepage": "https://github.com/evoscapebio/rnaseq-analysis-plugin",
-  "repository": "https://github.com/evoscapebio/rnaseq-analysis-plugin",
+  "homepage": "https://github.com/shaohuaxu-evoscape/rnaseq-analysis-plugin",
+  "repository": "https://github.com/shaohuaxu-evoscape/rnaseq-analysis-plugin",
   "license": "MIT",
   "keywords": [
     "rnaseq",
