@@ -1,13 +1,21 @@
-# Remote Preprocessing
+# Remote Preprocessing (Interactive / Debug Mode)
 
 > **Prerequisite:** Read [`../SKILL.md`](../SKILL.md) for pipeline overview.
 
-Execute preprocessing steps (0a-0d) on a remote server via MCP remote-linux. This is triggered when `remote.enabled` is `true` in `configs/analysis_case.yaml` and no local gene_counts.tsv exists.
+Step-by-step interactive remote preprocessing via MCP remote-linux. Use this as a **fallback** when the one-shot SSH script fails or when you need to debug individual steps.
+
+**Primary method**: Use the SSH script first:
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/rnaseq_remote_preprocess.sh -c configs/analysis_case.yaml
+```
+
+**This document is for**: Interactive debugging, partial re-runs, or when MCP remote-linux is preferred over the SSH script.
 
 ## When to Use
 
-- User has raw FASTQ data on a remote server
-- Bioinformatics tools (fastp, hisat2, samtools, htseq-count) are installed on the remote server, not locally
+- The SSH script (`rnaseq_remote_preprocess.sh`) failed and you need to diagnose which step broke
+- User wants to run a single preprocessing step (e.g., only re-run fastp)
+- MCP remote-linux is available and user prefers interactive control
 - `remote.enabled: true` is set in the config
 
 ## Configuration

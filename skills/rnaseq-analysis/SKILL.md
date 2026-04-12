@@ -80,7 +80,15 @@ Then enter the interactive setup wizard. Read [`references/rnaseq-setup-wizard.m
 
 ### Case B: Configured but Not Run (yaml exists, no results)
 
-**Check if remote preprocessing is needed:** If `remote.enabled = true` AND no gene_counts.tsv exists locally, read [`references/rnaseq-remote-preprocessing.md`](references/rnaseq-remote-preprocessing.md) and execute remote preprocessing first. After pulling results back, continue with local analysis.
+**Check if remote preprocessing is needed:** If `remote.enabled = true` AND no gene_counts.tsv exists locally:
+
+1. **Primary (fast)**: Run the SSH preprocessing script:
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/scripts/rnaseq_remote_preprocess.sh -c configs/analysis_case.yaml
+   ```
+2. **Fallback (interactive debug)**: If the script fails or the user wants step-by-step control, read [`references/rnaseq-remote-preprocessing.md`](references/rnaseq-remote-preprocessing.md) and execute via MCP remote-linux.
+
+After gene_counts.tsv is pulled back, continue with local analysis.
 
 **Otherwise** (local mode or gene_counts already available), show config summary and suggest:
 ```
