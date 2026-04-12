@@ -81,6 +81,30 @@ Then invoke `/rnaseq-analysis`. The skill automatically:
 2. Copies the config template
 3. Launches an interactive wizard to fill in your project details
 
+## Remote Server Deployment
+
+Deploy the pipeline once on a shared server (admin), other users call it with results in their own directories.
+
+**Admin setup (one-time):**
+```bash
+bash scripts/rnaseq_remote_setup.sh -H shaohua@azure
+```
+
+**User workflow (on the remote server):**
+```bash
+cd ~ && mkdir my-project && cd my-project
+/home/shaohua/rnaseq-analysis-plugin/scripts/rnaseq-init-project
+# edit configs/analysis_case.yaml
+/home/shaohua/rnaseq-analysis-plugin/scripts/rnaseq-run -c configs/analysis_case.yaml --steps 1a-5b
+```
+
+**From local Claude Code (SSH preprocessing):**
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/rnaseq_remote_preprocess.sh -c configs/analysis_case.yaml
+```
+
+See [Remote Deployment](skills/rnaseq-analysis/references/rnaseq-remote-deployment.md) for details.
+
 ## Requirements
 
 Python >= 3.10 with:
@@ -90,6 +114,8 @@ numpy pandas scipy scikit-learn matplotlib statsmodels PyYAML openpyxl pydeseq2
 ```
 
 Optional: `gseapy` for GSEA analysis.
+
+For remote preprocessing: `fastp`, `hisat2`, `samtools`, `htseq-count` (install via conda).
 
 ## License
 

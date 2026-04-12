@@ -198,4 +198,5 @@ Module 5: Gene Clustering -> Cluster Deep-Dive
 |-------|-------------|
 | [`Config Reference`](references/rnaseq-config-reference.md) | Per-field documentation for analysis_case.yaml |
 | [`Extend: Add Step`](references/rnaseq-extend-step.md) | Step development guide, templates, API reference |
+| [`Remote Deployment`](references/rnaseq-remote-deployment.md) | Deploy shared pipeline on remote server |
 | [`Troubleshooting`](references/rnaseq-troubleshooting.md) | Common errors and fixes |
