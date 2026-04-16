@@ -69,15 +69,21 @@ preprocessing:
   threads: 8
   test_n_samples: 0
 
-  # FASTQ naming convention on the remote server.
-  # Pattern: {condition}-{timepoint}.{R1|R2}.fq.gz
-  # Sample ID = "{condition}-{timepoint}" (must match gene_counts.tsv column names).
-  # Only samples whose condition is in target_conditions AND whose timepoint is in
-  # experiment.timepoints will be processed. Leave sample_filter empty to process all.
-  fastq_pattern: "{condition}-{timepoint}.{read}.fq.gz"
-  sample_filter:
-    conditions: []    # e.g. ["R1", "R2"] — leave empty to use all target_conditions
-    timepoints: []    # e.g. [18, 24, 48] — leave empty to use all experiment.timepoints
+  # Two FASTQ naming patterns exist across batches (read tag is always .R1/.R2):
+  #   Pattern A — condition + timepoint encoded in filename:
+  #     {condition}-{timepoint}.{R1|R2}.fq.gz   e.g. R1-18.R1.fq.gz
+  #   Pattern B — opaque sample ID only:
+  #     {sample_id}.{R1|R2}.fq.gz               e.g. W1.R1.fq.gz
+  #
+  # "auto" detects the pattern from the batch directory.
+  # For Pattern B batches, the wizard will ask you to fill in sample_manifest manually.
+  fastq_pattern: "auto"   # "auto" | "A" | "B"
+
+  # Sample manifest (auto-generated for Pattern A; fill in manually for Pattern B).
+  # TSV columns: sample_id  condition  timepoint  r1_file  r2_file
+  # sample_id becomes the gene_counts.tsv column name.
+  # Recommended format: {condition}-{timepoint}  (e.g. R1-18)
+  sample_manifest: "inputs/sample_manifest.tsv"
 
   hisat2_index:
     enabled: true

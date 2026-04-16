@@ -106,40 +106,67 @@ After collecting host, user, and batch name, verify on the remote server via `mc
 ls /fold/fermentation-rna-data/data/{batch_name}/
 ```
 
-FASTQ files follow the naming convention: **`{condition}-{timepoint}.{R1|R2}.fq.gz`**  
-Sample ID = `{condition}-{timepoint}` (will become gene_counts.tsv column names).
+Two FASTQ naming patterns exist across batches. Auto-detect by checking filenames:
 
-Parse the listed file names to extract available conditions and timepoints:
 ```python
 import re
-conditions_found, timepoints_found = set(), set()
-for f in files:
-    m = re.match(r'^(.+)-(\d+)\.(R1|R2)\.fq\.gz$', f)
-    if m:
-        conditions_found.add(m.group(1))
-        timepoints_found.add(int(m.group(2)))
+
+fq_files = [f for f in files if f.endswith('.R1.fq.gz')]
+
+# Try Pattern A: {condition}-{timepoint}.R1.fq.gz
+pattern_a = [re.match(r'^(.+)-(\d+)\.R1\.fq\.gz$', f) for f in fq_files]
+is_pattern_a = sum(1 for m in pattern_a if m) >= len(fq_files) * 0.8
 ```
 
-Show the user a summary table, for example:
+**Pattern A detected** (`{condition}-{timepoint}.{R1|R2}.fq.gz`, e.g. `R1-18.R1.fq.gz`):
+
+Extract conditions and timepoints, show summary:
 ```
 Found in /fold/fermentation-rna-data/data/20260313/:
+  Pattern : A  ({condition}-{timepoint}.{R1|R2}.fq.gz)
   Conditions : R1, R2, R5, R6
   Timepoints : 18, 24, 48, 66, 78
   Total samples: 20 (paired-end)
 ```
+Cross-check declared conditions from Step 1 → warn if any missing, note extras that will be skipped.
 
-Cross-check with the target conditions declared in Step 1:
-- Declared condition **missing** from directory → warn user, ask to correct or continue
-- Extra conditions exist → note them; they will be filtered out during preprocessing
-- Confirm final sample list before proceeding
+Auto-generate `inputs/sample_manifest.tsv` (sample_id = `{condition}-{timepoint}`):
+```
+sample_id  condition  timepoint  r1_file           r2_file
+R1-18      R1         18         R1-18.R1.fq.gz    R1-18.R2.fq.gz
+R1-24      R1         24         R1-24.R1.fq.gz    R1-24.R2.fq.gz
+R2-18      R2         18         R2-18.R1.fq.gz    R2-18.R2.fq.gz
+...
+```
+Filter to declared conditions only. Write manifest to `inputs/sample_manifest.tsv`.
 
-Then write `preprocessing.sample_filter` into config to restrict processing to declared conditions only:
+---
+
+**Pattern B detected** (`{sample_id}.{R1|R2}.fq.gz`, e.g. `W1.R1.fq.gz`):
+
+The filename contains no condition/timepoint information. Show the sample IDs found:
+```
+Found in /fold/fermentation-rna-data/data/20251103/:
+  Pattern : B  ({sample_id}.{R1|R2}.fq.gz)
+  Sample IDs: W1, W2, W3, W4, W5, W6
+```
+Ask the user to provide condition and timepoint for each sample ID. Recommended sample_id format for output: `{condition}-{timepoint}`.
+
+Once the user provides the mapping, write `inputs/sample_manifest.tsv`:
+```
+sample_id  condition  timepoint  r1_file     r2_file
+WT-0       WT         0          W1.R1.fq.gz W1.R2.fq.gz
+WT-6       WT         6          W2.R1.fq.gz W2.R2.fq.gz
+...
+```
+
+---
+
+Set `preprocessing.fastq_pattern` in config:
 ```yaml
 preprocessing:
-  fastq_pattern: "{condition}-{timepoint}.{read}.fq.gz"
-  sample_filter:
-    conditions: ["R1", "R2"]   # only the two declared target conditions
-    timepoints: []              # empty = all detected timepoints
+  fastq_pattern: "auto"          # wizard writes "A" or "B" after detection
+  sample_manifest: "inputs/sample_manifest.tsv"
 ```
 
 **Step 3 — Reference Genome Selection and Sync:**
