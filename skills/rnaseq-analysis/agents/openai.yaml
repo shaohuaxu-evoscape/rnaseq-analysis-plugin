@@ -1,0 +1,4 @@
+interface:
+  display_name: "RNA-seq Analysis"
+  short_description: "Run and interpret this RNA-seq pipeline"
+  default_prompt: "Use $rnaseq-analysis to set up, run, debug, or interpret the RNA-seq analysis pipeline in this repository."
