@@ -48,7 +48,15 @@ HOST=$(read_config "c['remote']['host']")
 USER=$(read_config "c['remote']['user']")
 DEPLOY_DIR=$(read_config "c['remote'].get('deploy_dir', '')")
 CONDA_ENV=$(read_config "c['remote'].get('conda_env', 'rnaseq')")
+CONDA_PREFIX=$(read_config "c['remote'].get('conda_prefix', '')")
 BATCH=$(read_config "list(c['batches'].keys())[0]")
+
+# Derive Python path: use conda_prefix if set, else fall back to ~/miniconda3
+if [ -n "$CONDA_PREFIX" ]; then
+    REMOTE_PYTHON="${CONDA_PREFIX}/envs/${CONDA_ENV}/bin/python"
+else
+    REMOTE_PYTHON="\$HOME/miniconda3/envs/${CONDA_ENV}/bin/python"
+fi
 
 if [ -z "$DEPLOY_DIR" ]; then
     echo "ERROR: remote.deploy_dir not set in $CONFIG"
@@ -56,12 +64,17 @@ if [ -z "$DEPLOY_DIR" ]; then
     exit 1
 fi
 
+REMOTE_WORKDIR="~/rnaseq-projects/${BATCH}"
+REMOTE_LOG="${REMOTE_WORKDIR}/preprocess.log"
+REMOTE_DONE="${REMOTE_WORKDIR}/preprocess.done"
+REMOTE_FAIL="${REMOTE_WORKDIR}/preprocess.failed"
+
 echo "============================================================"
 echo "Remote RNA-seq Preprocessing"
 echo "============================================================"
 echo "  Host:       ${USER}@${HOST}"
 echo "  Deploy dir: ${DEPLOY_DIR}"
-echo "  Conda env:  ${CONDA_ENV}"
+echo "  Conda env:  ${CONDA_ENV} (${REMOTE_PYTHON})"
 echo "  Batch:      ${BATCH}"
 echo "============================================================"
 
@@ -69,32 +82,64 @@ echo "============================================================"
 
 echo ""
 echo "[1/4] Syncing config to remote..."
-ssh "${USER}@${HOST}" "mkdir -p ~/rnaseq-projects/${BATCH}/configs"
-scp "$CONFIG" "${USER}@${HOST}:~/rnaseq-projects/${BATCH}/configs/analysis_case.yaml"
-echo "  Config uploaded to ~/rnaseq-projects/${BATCH}/configs/"
+ssh "${HOST}" "mkdir -p ${REMOTE_WORKDIR}/configs && rm -f ${REMOTE_DONE} ${REMOTE_FAIL}"
+scp "$CONFIG" "${HOST}:${REMOTE_WORKDIR}/configs/analysis_case.yaml"
+echo "  Config uploaded to ${REMOTE_WORKDIR}/configs/"
 
-# ── Step 2: Run preprocessing on remote ──────────────────────────────────────
-
-echo ""
-echo "[2/4] Running preprocessing on remote (steps 0a-0d)..."
-ssh "${USER}@${HOST}" "cd ~/rnaseq-projects/${BATCH} && conda run --no-banner -n ${CONDA_ENV} python ${DEPLOY_DIR}/scripts/rnaseq_run.py -c configs/analysis_case.yaml --steps preprocessing" || {
-    echo ""
-    echo "ERROR: Remote preprocessing failed."
-    echo "Debug with MCP remote-linux: read rnaseq-remote-preprocessing.md for step-by-step instructions."
-    exit 1
-}
-
-# ── Step 3: Pull results back ────────────────────────────────────────────────
+# ── Step 2: Launch preprocessing in background via nohup ─────────────────────
 
 echo ""
-echo "[3/4] Pulling gene_counts.tsv back to local..."
+echo "[2/4] Launching preprocessing on remote (nohup background)..."
+ssh "${HOST}" "
+  nohup bash -c '
+    cd ${REMOTE_WORKDIR} && \
+    ${REMOTE_PYTHON} ${DEPLOY_DIR}/scripts/rnaseq_run.py \
+      -c configs/analysis_case.yaml --steps preprocessing \
+    && touch ${REMOTE_DONE} \
+    || touch ${REMOTE_FAIL}
+  ' > ${REMOTE_LOG} 2>&1 &
+  echo \"  PID \$! started — log: ${REMOTE_LOG}\"
+"
+
+echo "  Preprocessing running in background on remote."
+echo "  Polling every 60s for completion..."
+
+# ── Step 3: Poll until done or failed ────────────────────────────────────────
+
+ELAPSED=0
+while true; do
+    sleep 60
+    ELAPSED=$((ELAPSED + 60))
+
+    STATUS=$(ssh "${HOST}" "
+        if [ -f ${REMOTE_DONE} ]; then echo done;
+        elif [ -f ${REMOTE_FAIL} ]; then echo failed;
+        else echo running; fi
+    " 2>/dev/null || echo "ssh_error")
+
+    TAIL=$(ssh "${HOST}" "tail -3 ${REMOTE_LOG} 2>/dev/null" 2>/dev/null || echo "(log unavailable)")
+
+    echo "  [${ELAPSED}s] ${STATUS} — ${TAIL}"
+
+    if [ "$STATUS" = "done" ]; then
+        break
+    elif [ "$STATUS" = "failed" ]; then
+        echo ""
+        echo "ERROR: Remote preprocessing failed. Last log:"
+        ssh "${HOST}" "tail -30 ${REMOTE_LOG} 2>/dev/null" || true
+        exit 1
+    fi
+done
+
+echo ""
+echo "[3/4] Preprocessing complete. Pulling gene_counts.tsv..."
 LOCAL_DIR="results/shared/${BATCH}/01_preprocessing/gene_counts"
 mkdir -p "$LOCAL_DIR"
 
-REMOTE_COUNTS="~/rnaseq-projects/${BATCH}/results/shared/${BATCH}/01_preprocessing/gene_counts/gene_counts.tsv"
-scp "${USER}@${HOST}:${REMOTE_COUNTS}" "${LOCAL_DIR}/gene_counts.tsv" || {
+REMOTE_COUNTS="${REMOTE_WORKDIR}/results/shared/${BATCH}/01_preprocessing/gene_counts/gene_counts.tsv"
+scp "${HOST}:${REMOTE_COUNTS}" "${LOCAL_DIR}/gene_counts.tsv" || {
     echo "ERROR: Could not pull gene_counts.tsv from remote."
-    echo "Check if preprocessing completed successfully."
+    echo "Check remote path: ${REMOTE_COUNTS}"
     exit 1
 }
 

@@ -31,6 +31,13 @@ _MODULE_COLORS = {
     "mva": "#E78AC3",
 }
 
+_MODULE_SPECS = [
+    ("TORC1", "TORC1 net activity", "torc1"),
+    ("Sterol", "Sterol pathway (12 ERG)", "sterol"),
+    ("FA-deg", "FA degradation (19 genes)", "fa_degradation"),
+    ("MVA", "MVA pathway (20 genes)", "mva"),
+]
+
 
 def _mean_fc(log2cpm, gene_list, r1_sample_groups, r2_sample_groups):
     """Compute mean log2FC (R2-R1) per timepoint for a gene set.
@@ -149,13 +156,15 @@ def run(cfg):
         log.info(f"  {a_name}->{b_name}: fwd={fwd_r:+.2f} (p={fwd_p:.3f}), rev={rev_r:+.2f} (p={rev_p:.3f})")
 
     # Save data
-    module_df = pd.DataFrame({
-        "timepoint": timepoints,
-        "TORC1_net_activity": torc1,
-        "Sterol_12ERG": sterol,
-        "FA_deg_no_ADH": fa_deg,
-        "MVA_pathway": mva,
-    })
+    module_df = pd.DataFrame({"timepoint": timepoints})
+    if torc1 is not None:
+        module_df["TORC1_net_activity"] = torc1
+    if sterol is not None:
+        module_df["Sterol_12ERG"] = sterol
+    if fa_deg is not None:
+        module_df["FA_deg_no_ADH"] = fa_deg
+    if mva is not None:
+        module_df["MVA_pathway"] = mva
     module_df.to_csv(os.path.join(out_dir, "module_fc_timeseries.tsv"),
                      sep="\t", index=False)
 
@@ -164,8 +173,7 @@ def run(cfg):
                   sep="\t", index=False)
 
     # Plot
-    _plot_two_panel(timepoints, torc1, sterol, fa_deg, mva,
-                    lag_results, out_dir, cfg)
+    _plot_two_panel(timepoints, named_modules, lag_results, out_dir, cfg)
 
     write_readme(out_dir, "4b", "Temporal Causality", {
         "module_fc_timeseries.tsv": "Mean log2FC per timepoint for TORC1 net activity, Sterol (12 ERG), FA degradation (19 genes), and MVA pathway (20 genes)",
@@ -173,14 +181,18 @@ def run(cfg):
         plot_filename(cfg, "fig_temporal_causality.png"): "Two-panel figure: four-module temporal dynamics and lag-1 cross-correlation bar chart",
     })
 
+    trajectory_lines = "\n".join(
+        f"- {module_name} trajectory: {' -> '.join(f'{v:+.2f}' for v in values)}"
+        for module_name, (values, _) in named_modules.items()
+    )
+
     doc = (
         "### Method\n\n"
         "TORC1 net activity = mean FC of 7 activators - mean FC of 9 negative regulators. "
         "Lag-1 Pearson cross-correlation tests temporal precedence between "
         "TORC1, Sterol (12 ERG), FA degradation (19 genes), and MVA (20 genes).\n\n"
         "### Results\n\n"
-        f"- TORC1 net activity trajectory: {' -> '.join(f'{v:+.2f}' for v in torc1)}\n"
-        f"- Sterol trajectory: {' -> '.join(f'{v:+.2f}' for v in sterol)}\n"
+        f"{trajectory_lines}\n"
         f"- {len(lag_results)} pairwise lag-1 correlations computed (forward vs reverse)\n\n"
         f"{img(cfg, '04_advanced_analysis/temporal_causality', 'fig_temporal_causality.png', 'Four-module temporal dynamics and lag-1 cross-correlation')}\n"
     )
@@ -189,8 +201,7 @@ def run(cfg):
     log.info("  Temporal causality complete")
 
 
-def _plot_two_panel(timepoints, torc1, sterol, fa_deg, mva,
-                    lag_results, out_dir, cfg):
+def _plot_two_panel(timepoints, named_modules, lag_results, out_dir, cfg):
     """Two-panel figure: dynamics + lag-1 bar chart."""
     cond1, cond2 = get_conditions(cfg)[:2]
     fig, (ax_left, ax_right) = plt.subplots(1, 2, figsize=(14, 6))
@@ -201,24 +212,30 @@ def _plot_two_panel(timepoints, torc1, sterol, fa_deg, mva,
     # ── Left: Four-module time series ──
     ax = ax_left
 
-    for vals, color, label in [
-        (torc1, C_TORC1, "TORC1 net activity"),
-        (sterol, C_STEROL, "Sterol pathway (12 ERG)"),
-        (fa_deg, C_FA, "FA degradation (19 genes)"),
-        (mva, C_MVA, "MVA pathway (20 genes)"),
-    ]:
+    plotted_modules = []
+    for module_name, label, color_key in _MODULE_SPECS:
+        values_color = named_modules.get(module_name)
+        if values_color is None:
+            continue
+        vals, color = values_color
+        plotted_modules.append((module_name, vals, color))
         ax.plot(timepoints, vals, "o-", color=color, ms=6, lw=1.5, label=label)
         for i, t in enumerate(timepoints):
             ax.text(t, vals[i] + 0.03, f"{vals[i]:+.2f}", ha="center", va="bottom",
                     fontsize=8, color=color,
                     path_effects=[pe.withStroke(linewidth=1.5, foreground="white")])
 
-    # Lag arrows: TORC1 -> Sterol
-    for i in range(len(timepoints) - 1):
-        ax.annotate("", xy=(timepoints[i+1], sterol[i+1]),
-                    xytext=(timepoints[i], torc1[i]),
-                    arrowprops=dict(arrowstyle="-|>", color=C_TORC1, lw=0.8,
-                                    alpha=0.2, connectionstyle="arc3,rad=0.25"))
+    # Lag arrows: TORC1 -> Sterol when both modules are present.
+    torc1_values = named_modules.get("TORC1")
+    sterol_values = named_modules.get("Sterol")
+    if torc1_values is not None and sterol_values is not None:
+        torc1, torc1_color = torc1_values
+        sterol, _ = sterol_values
+        for i in range(len(timepoints) - 1):
+            ax.annotate("", xy=(timepoints[i+1], sterol[i+1]),
+                        xytext=(timepoints[i], torc1[i]),
+                        arrowprops=dict(arrowstyle="-|>", color=torc1_color, lw=0.8,
+                                        alpha=0.2, connectionstyle="arc3,rad=0.25"))
 
     ax.axhline(0, ls="--", c="grey", lw=1.0)
     ax.set_xlabel("Time (h)")

@@ -14,8 +14,8 @@ K-means clustering on top variable genes. Identifies co-expression patterns acro
 ## Configuration
 
 ```yaml
-sample_analysis:
-  clustering:
+cluster_analysis:
+  gene_clustering:
     enabled: true
     top_n_genes: 2000              # Top N genes by variance for clustering
     k_range: [4, 12]               # K-means search range [min, max]

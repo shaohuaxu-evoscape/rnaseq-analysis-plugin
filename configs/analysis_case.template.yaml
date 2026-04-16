@@ -54,10 +54,10 @@ target_conditions:
       condition: TREATMENT     # e.g., column names: TREATMENT-0, TREATMENT-24
 
 # ── Experiment Design ─────────────────────────────────────────────────────────
-experiment:
-  # If omitted, all shared timepoints between the two target conditions
-  # will be detected automatically from gene_counts.tsv column names.
-  # timepoints: [0, 6, 12, 24, 48]
+experiment: {}
+# If omitted, all shared timepoints between the two target conditions
+# will be detected automatically from gene_counts.tsv column names.
+# timepoints: [0, 6, 12, 24, 48]
 
 # ══ Module 0: Preprocessing ═══════════════════════════════════════════════════
 # Steps 0a-0d: HISAT2 index → Fastp QC → HISAT2 alignment → HTSeq count

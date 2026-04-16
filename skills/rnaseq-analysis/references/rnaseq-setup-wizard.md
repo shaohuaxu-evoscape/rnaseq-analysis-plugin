@@ -11,9 +11,11 @@ Interactive project setup that scaffolds the directory structure and generates `
 
 ## Interaction Style
 
-**All rounds follow a menu-driven format.** Whenever options can be enumerated, present them as a numbered list. The user selects by entering a number. Free-text input is used only when no finite list applies (e.g., project name, file path, custom value).
+**Use a menu-driven format throughout.** Whenever options can be enumerated, present them as a numbered list. The user selects by entering a number. Free-text input is used only when no finite list applies (e.g., project name, file path, custom value).
 
-After each selection, echo confirmation before proceeding to the next round:
+**Do NOT add any section headers, round labels, or step labels before menus or questions** (e.g., do NOT write "Round 1 —", "Step 1:", "Round 2 — Data Sources", or any similar prefix in output shown to the user). Just show the menu or question directly.
+
+After each selection, echo confirmation before presenting the next question:
 ```
 ✓ Selected: [what the user chose]
 ```
@@ -336,7 +338,7 @@ Ask only if the user wants to restrict to a subset:
 │  [1]  Auto-detect from data   ← default
 │  [2]  Specify a subset manually
 └───────────────────────────────────────────────────────────┘
-输入编号（直接回车使用默认）：
+输入编号：
 ```
 
 - **[1] Auto-detect**: leave `experiment.timepoints` commented out in config.
@@ -589,19 +591,22 @@ Present detected timepoints as a menu:
 Enter number:
 ```
 
-If **[2]** selected, list each timepoint as a toggleable item:
+If **[2]** selected, list each timepoint as a numbered item and ask the user which to EXCLUDE (all are included by default):
 ```
 ┌─ Select Timepoints ───────────────────────────────────────┐
-│  Enter numbers to toggle on/off. Press Enter when done.
+│  All timepoints are included by default.
+│  Enter the numbers to EXCLUDE (comma-separated):
 │
-│  [1]  ✓  18h
-│  [2]  ✓  24h
-│  [3]  ✓  48h
-│  [4]  ✓  66h
-│  [5]  ✓  78h
+│  [1]  18h
+│  [2]  24h
+│  [3]  48h
+│  [4]  66h
+│  [5]  78h
 └───────────────────────────────────────────────────────────┘
-Toggle (e.g., 3,5 to deselect) or Enter to confirm:
+Exclude numbers (e.g., 3,5), or 0 to keep all:
 ```
+
+Parse the user's reply as a comma-separated list of numbers to exclude; the remaining timepoints are kept.
 
 Echo:
 ```
@@ -618,7 +623,7 @@ Update `experiment.timepoints`.
 │  [2]  CPM   — Counts Per Million (no GTF needed)
 │  [3]  FPKM  — Fragments Per Kilobase Per Million
 └───────────────────────────────────────────────────────────┘
-Enter number (or press Enter for default):
+Enter number:
 ```
 
 Then show current gene filtering defaults and ask to confirm or edit:
@@ -674,19 +679,22 @@ Update `project.organism_taxid`, `project.gene_id_prefix`, `differential_analysi
 
 ## Advanced Analysis (Optional)
 
-Present all optional modules as a toggle menu. Default is all disabled:
+Present all optional modules as a numbered list. Ask the user to enter the numbers they want to enable in a single reply. Default is all disabled (0):
 
 ```
 ┌─ Advanced Analysis ───────────────────────────────────────┐
-│  Enter number to toggle on/off. Press Enter when done.
+│  All modules below are disabled by default.
+│  Enter numbers to enable (comma-separated), or 0 to skip:
 │
-│  [1]  ✗  Heterologous gene expression (4c)
-│  [2]  ✗  Fermentation overview (4d)
-│  [3]  ✗  Transporter & aminopeptidase analysis (4a)
-│  [4]  ✗  Temporal causality (4b)
+│  [1]  Heterologous gene expression (4c)
+│  [2]  Fermentation overview (4d)
+│  [3]  Transporter & aminopeptidase analysis (4a)
+│  [4]  Temporal causality (4b)
 └───────────────────────────────────────────────────────────┘
-Toggle (e.g., 1,3) or press Enter to keep all disabled:
+Enable (e.g., 1,3), or 0 to skip all:
 ```
+
+Parse the user's reply as a comma-separated list of numbers to enable. If "0" or empty, keep all disabled.
 
 For any module toggled on, ask for required parameters:
 - **4c (Heterologous genes)**: ask for gene list as free text (name, function, color per gene)
@@ -729,12 +737,12 @@ Show a full summary table before writing:
 │  Advanced     : {enabled modules or "none"}
 │
 │  [1]  Confirm and write configs/analysis_case.yaml   ← 
-│  [2]  Go back and edit a specific round
+│  [2]  Go back and edit a specific section
 └───────────────────────────────────────────────────────────┘
 Enter number:
 ```
 
-If **[2]**, ask which round to go back to:
+If **[2]**, ask which section to go back to:
 ```
 ┌─ Go back to ──────────────────────────────────────────────┐
 │  [1]  Project Basics

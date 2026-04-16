@@ -39,7 +39,6 @@ except ImportError:  # pragma: no cover
 
 
 PIPELINE_ROOT = Path(__file__).resolve().parent.parent
-SHARED_RESULTS_ROOT = PIPELINE_ROOT / "results" / "shared"
 DEFAULT_MODULE1_REL = Path("results") / "shared" / "{shared_batch_name}" / "01_preprocessing" / "gene_counts" / "gene_counts.tsv"
 COLUMN_RE = re.compile(r"^(.+)-(\d+)$")
 
@@ -66,6 +65,18 @@ def _resolve_path(value: str | None, base_dir: Path) -> Path | None:
     return path
 
 
+def _project_root_from_case(case_path: Path) -> Path:
+    """Infer the user project root from an analysis-case path.
+
+    The common layout is `<project>/configs/analysis_case.yaml`. When the config
+    does not live under `configs/`, fall back to its parent directory.
+    """
+    case_path = Path(case_path).resolve()
+    if case_path.parent.name == "configs":
+        return case_path.parent.parent
+    return case_path.parent
+
+
 def _load_case(case_path: Path) -> dict:
     with open(case_path, "r") as f:
         cfg = yaml.safe_load(f) or {}
@@ -90,8 +101,9 @@ def _shared_batch_name(batch_id: str, batch_cfg: dict, config_path: Path, case_c
     return batch_id
 
 
-def _default_counts_path(shared_batch_name: str) -> Path:
-    return PIPELINE_ROOT / str(DEFAULT_MODULE1_REL).format(shared_batch_name=shared_batch_name)
+def _default_counts_path(shared_batch_name: str, config_path: Path) -> Path:
+    project_root = _project_root_from_case(config_path)
+    return project_root / str(DEFAULT_MODULE1_REL).format(shared_batch_name=shared_batch_name)
 
 
 def _available_conditions(path: Path) -> set[str]:
@@ -126,7 +138,7 @@ def _ensure_batch_counts(
     if explicit and explicit.is_file():
         return explicit, "explicit"
 
-    default_path = _default_counts_path(shared_batch_name)
+    default_path = _default_counts_path(shared_batch_name, config_path)
     if _count_matrix_covers_conditions(default_path, requested_conditions):
         return default_path, "default_output"
 
@@ -285,6 +297,7 @@ def _write_analysis_config(
     analysis_counts_path: Path,
     sample_manifest_path: Path,
     output_root: Path,
+    shared_results_root: Path,
     conditions: List[str],
     run_name: str,
     case_cfg: dict | None = None,
@@ -310,7 +323,7 @@ def _write_analysis_config(
     cfg.setdefault("paths", {})
     cfg["paths"]["gene_counts"] = str(analysis_counts_path)
     cfg["paths"]["sample_manifest"] = str(sample_manifest_path)
-    cfg["paths"]["shared_output_dir"] = str(SHARED_RESULTS_ROOT.resolve())
+    cfg["paths"]["shared_output_dir"] = str(shared_results_root.resolve())
     cfg["paths"]["output_dir"] = str(output_root / "{pair_name}")
     cfg["documents_dir"] = str(output_root / "documents")
 
@@ -320,19 +333,22 @@ def _write_analysis_config(
         yaml.safe_dump(cfg, f, sort_keys=False, allow_unicode=True)
 
 
-def _resolve_analysis_output_paths(case_cfg: dict, case_path: Path) -> tuple[str, Path, Path]:
-    """Resolve run name, output root, and generated analysis config path."""
+def _resolve_analysis_output_paths(case_cfg: dict, case_path: Path) -> tuple[str, Path, Path, Path]:
+    """Resolve run name, output root, shared root, and generated config path."""
     case_dir = case_path.parent
+    project_root = _project_root_from_case(case_path)
     run_name = str(case_cfg.get("run_name", case_path.stem))
     output_root = _resolve_path(case_cfg.get("output_dir"), case_dir)
     if output_root is None:
-        output_root = (PIPELINE_ROOT / "results" / run_name).resolve()
+        output_root = (project_root / "results" / run_name).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
+    shared_results_root = (project_root / "results" / "shared").resolve()
+    shared_results_root.mkdir(parents=True, exist_ok=True)
 
     analysis_config_path = _resolve_path(case_cfg.get("analysis_config"), case_dir)
     if analysis_config_path is None:
         analysis_config_path = (output_root / "analysis_config.yaml").resolve()
-    return run_name, output_root, analysis_config_path
+    return run_name, output_root, shared_results_root, analysis_config_path
 
 
 def _prepare_batch_tables(
@@ -408,7 +424,7 @@ def prepare_analysis_case(case_config_path: str | Path, case_overrides: dict | N
     if case_overrides:
         for key, value in case_overrides.items():
             _set_nested(case_cfg, key, value)
-    run_name, output_root, analysis_config_path = _resolve_analysis_output_paths(case_cfg, case_path)
+    run_name, output_root, shared_results_root, analysis_config_path = _resolve_analysis_output_paths(case_cfg, case_path)
 
     target_conditions = OrderedDict(case_cfg["target_conditions"])
     if len(target_conditions) != 2:
@@ -451,6 +467,7 @@ def prepare_analysis_case(case_config_path: str | Path, case_overrides: dict | N
         analysis_counts_path=analysis_counts_path,
         sample_manifest_path=sample_manifest_path,
         output_root=output_root,
+        shared_results_root=shared_results_root,
         conditions=list(target_conditions.keys()),
         run_name=run_name,
         case_cfg=case_cfg,

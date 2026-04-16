@@ -19,8 +19,26 @@ from ..core.plotting import (apply_style, style_axes, save_figure,
 log = setup_logger("cluster_analysis.gene_clustering")
 
 
+def _get_clustering_config(cfg):
+    """Return clustering config, preferring the current cluster_analysis block.
+
+    Older docs referenced sample_analysis.clustering. Keep that path as a
+    compatibility fallback so existing configs do not break.
+    """
+    cluster_cfg = cfg.get("cluster_analysis", {}).get("gene_clustering")
+    if cluster_cfg is not None:
+        return cluster_cfg
+    legacy_cfg = cfg.get("sample_analysis", {}).get("clustering")
+    if legacy_cfg is not None:
+        return legacy_cfg
+    raise KeyError(
+        "Missing clustering config. Expected 'cluster_analysis.gene_clustering' "
+        "or legacy 'sample_analysis.clustering'."
+    )
+
+
 def run(cfg):
-    clust_cfg = cfg["sample_analysis"]["clustering"]
+    clust_cfg = _get_clustering_config(cfg)
     if not clust_cfg["enabled"]:
         log.info("Clustering disabled, skipping")
         return

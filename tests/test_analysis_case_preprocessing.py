@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import yaml
@@ -15,6 +16,8 @@ from scripts.core.plotting import plot_filename, save_figure
 from scripts.steps.fastp import _requested_r1_files
 from scripts.core.runner import run_pipeline
 from scripts.steps.pca import _valid_plot_pairs
+from scripts.steps.gene_clustering import _get_clustering_config
+from scripts.steps.temporal_causality import _plot_two_panel
 from scripts.core.validation import validate_analysis_case_config, validate_pipeline_config, validate_sample_manifest
 
 
@@ -157,6 +160,35 @@ class AnalysisCasePreprocessingTests(unittest.TestCase):
         self.assertEqual(mode, "generated")
         self.assertEqual(mocked.call_count, 1)
 
+    def test_default_output_paths_resolve_under_case_project_root(self):
+        project_root = self.tmp / "project"
+        case_dir = project_root / "configs"
+        case_dir.mkdir(parents=True)
+        case_path = case_dir / "analysis_case.yaml"
+        case_path.write_text("run_name: my_run\n")
+
+        run_name, output_root, shared_root, analysis_config_path = pac._resolve_analysis_output_paths(
+            {"run_name": "my_run"},
+            case_path,
+        )
+
+        self.assertEqual(run_name, "my_run")
+        self.assertEqual(output_root, (project_root / "results" / "my_run").resolve())
+        self.assertEqual(shared_root, (project_root / "results" / "shared").resolve())
+        self.assertEqual(analysis_config_path, output_root / "analysis_config.yaml")
+
+    def test_default_counts_path_resolves_under_case_project_root(self):
+        case_path = self.tmp / "project" / "configs" / "analysis_case.yaml"
+        case_path.parent.mkdir(parents=True)
+        case_path.write_text("batches: {}\n")
+
+        counts_path = pac._default_counts_path("batch_x", case_path)
+
+        self.assertEqual(
+            counts_path,
+            (self.tmp / "project" / "results" / "shared" / "batch_x" / "01_preprocessing" / "gene_counts" / "gene_counts.tsv").resolve(),
+        )
+
     def test_requested_r1_files_filters_to_requested_conditions(self):
         raw_dir = self.tmp / "raw"
         raw_dir.mkdir()
@@ -194,6 +226,51 @@ class AnalysisCasePreprocessingTests(unittest.TestCase):
             _valid_plot_pairs(2, [[1, 2], [1, 3], [2, 2], [0, 1], [1, 2]]),
             [(1, 2)],
         )
+
+    def test_get_clustering_config_prefers_cluster_analysis_and_supports_legacy_fallback(self):
+        canonical_cfg = {
+            "cluster_analysis": {
+                "gene_clustering": {"enabled": True, "top_n_genes": 10, "k_range": [2, 3], "random_state": 1}
+            },
+            "sample_analysis": {
+                "clustering": {"enabled": False}
+            },
+        }
+        legacy_cfg = {
+            "sample_analysis": {
+                "clustering": {"enabled": True, "top_n_genes": 20, "k_range": [3, 4], "random_state": 2}
+            }
+        }
+
+        self.assertTrue(_get_clustering_config(canonical_cfg)["enabled"])
+        self.assertEqual(_get_clustering_config(canonical_cfg)["top_n_genes"], 10)
+        self.assertEqual(_get_clustering_config(legacy_cfg)["top_n_genes"], 20)
+
+    def test_temporal_plot_handles_partial_module_set(self):
+        cfg = {
+            "plot": {"format": "png", "dpi": 72},
+            "experiment": {"conditions": ["condition1", "condition2"]},
+        }
+        out_dir = self.tmp / "temporal"
+        out_dir.mkdir()
+
+        named_modules = {
+            "Sterol": (np.array([0.1, 0.2, 0.25]), "#377EB8"),
+            "MVA": (np.array([-0.2, -0.1, 0.05]), "#E78AC3"),
+        }
+        lag_results = [
+            {
+                "A": "Sterol",
+                "B": "MVA",
+                "forward": 0.7,
+                "reverse": -0.1,
+                "color": "#377EB8",
+            }
+        ]
+
+        _plot_two_panel([18, 24, 48], named_modules, lag_results, out_dir, cfg)
+
+        self.assertTrue((out_dir / "fig_temporal_causality.png").exists())
 
     def test_validate_analysis_case_rejects_unknown_batch_reference(self):
         cfg = {
