@@ -42,23 +42,41 @@ Update `project.name`, `project.organism`, `project.strain` in the config.
 **Scan scope: ONLY within the current project directory.** Do NOT use paths from external context sources (CLAUDE.md, other project directories, sibling folders, or any prior knowledge). If a file is not found within `inputs/` or `results/shared/`, it is considered absent — ask the user.
 
 Scan `inputs/` and `results/shared/` within the project root:
-- Found `.fa` / `.fasta` in `inputs/ref/` -> auto-fill `paths.reference_genome`
-- Found `.gtf` / `.gff` in `inputs/ref/` -> auto-fill `paths.reference_gtf`
-- Found `gene_counts*.tsv` in `inputs/` or `results/shared/` -> auto-fill `batches.batch1.gene_counts`
-- Nothing found -> proceed to Round 2b (remote preprocessing)
+- Found `.fa` / `.fasta` in `inputs/ref/` → auto-fill `paths.reference_genome`
+- Found `.gtf` / `.gff` in `inputs/ref/` → auto-fill `paths.reference_gtf`
+- Found `gene_counts*.tsv` in `inputs/` or `results/shared/` → auto-fill `batches.batch1.gene_counts`, **skip to Round 3**
 
-## Round 2b: Remote Preprocessing (if no local gene_counts)
+If no gene_counts found, ask the user to choose one of two paths:
 
-If no local gene_counts.tsv found, ask:
+> **Option A — I already have a gene counts file**
+> Please provide the absolute path to the file.
+> (Accept path → set `batches.batch1.gene_counts`, then proceed to Round 3)
 
-1. "Do you need to run preprocessing on a remote server?" (yes/no)
-2. If yes, ask for:
-   - Remote host (hostname or IP)
-   - SSH username
-   - Remote path to raw FASTQ data directory
-   - Remote working directory for outputs
-   - Remote path to reference genome (.fa)
-   - Remote path to gene annotation (.gtf)
+> **Option B — I need to run preprocessing from raw FASTQ**
+> (Proceed to Round 2b)
+
+## Round 2b: Remote Preprocessing Setup
+
+This path applies when the user has no gene counts yet and needs to run Step 0 (HISAT2 → HTSeq) on a remote server.
+
+**Step 1 — Collect experiment design** (conditions and timepoints are not yet in a file header, so ask the user):
+
+Ask:
+1. What are the sample condition names? *(e.g., R1, R2, R3)*
+2. What timepoints are included? *(e.g., 18, 24, 48, 66, 78)*
+3. Which two conditions will be compared for DE analysis? *(e.g., R1 vs R2)*
+
+Update `target_conditions` and `experiment.timepoints` with these values now — they will be confirmed/corrected after Step 0 produces the gene_counts header.
+
+**Step 2 — Collect remote server configuration:**
+
+Ask for:
+- Remote host (hostname or IP)
+- SSH username
+- Remote path to raw FASTQ data directory
+- Remote working directory for pipeline outputs
+- Remote path to reference genome (`.fa`)
+- Remote path to gene annotation (`.gtf`)
 
 Update the `remote` section in config:
 ```yaml
@@ -73,11 +91,19 @@ remote:
   threads: 8
 ```
 
-If the user answers "no", ask for a local gene counts file path or FASTQ directory path instead.
+After config is saved, remind the user:
+```
+Next: run Step 0 on the remote server to generate gene_counts.tsv, then re-run the pipeline locally.
+  bash ${CLAUDE_PLUGIN_ROOT}/scripts/rnaseq_remote_preprocess.sh -c configs/analysis_case.yaml
+```
+
+Skip Rounds 3–4 for now (conditions/timepoints already set above). Resume from Round 5.
 
 ## Round 3: Condition Definition
 
-If gene_counts.tsv is available, read the header to list available conditions:
+*(Skip this round if coming from Round 2b — conditions were already collected.)*
+
+Read the gene_counts.tsv header to list available conditions:
 
 ```python
 # Column format: {condition}-{timepoint}, e.g., R1-18, R2-48
@@ -86,9 +112,11 @@ conditions = sorted(set(col.rsplit('-', 1)[0] for col in header))
 timepoints = sorted(set(int(col.rsplit('-', 1)[1]) for col in header))
 ```
 
-Let the user choose which two conditions to compare. Update `target_conditions`.
+Show detected conditions and let the user choose which two to compare. Update `target_conditions`.
 
 ## Round 4: Timepoints
+
+*(Skip this round if coming from Round 2b — timepoints were already collected.)*
 
 Show detected timepoints, ask whether to use all or select a subset.
 
