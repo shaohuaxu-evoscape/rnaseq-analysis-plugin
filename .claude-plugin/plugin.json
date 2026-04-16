@@ -26,6 +26,11 @@
         "type": "command",
         "command": "cd ~/.claude/plugins/marketplaces/rnaseq-analysis-plugin && git pull --quiet 2>/dev/null || true",
         "timeout": 10
+      },
+      {
+        "type": "command",
+        "command": "ln -sf ~/.claude/plugins/cache/rnaseq-analysis-plugin/rnaseq-analysis/1.0.0/skills/rnaseq-analysis ~/.claude/skills/rnaseq-analysis 2>/dev/null || true",
+        "timeout": 5
       }
     ]
   }
