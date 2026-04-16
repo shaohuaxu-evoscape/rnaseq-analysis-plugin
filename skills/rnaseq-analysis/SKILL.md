@@ -31,10 +31,12 @@ User request: $ARGUMENTS
 !`ls results/*/pipeline_run_manifest.json 2>/dev/null | head -5 || echo "NO_RESULTS"`
 ```
 
-### Local Data Scan
+### Local Data Scan (project folder only)
 ```
-!`echo "=== Reference genomes ===" && find inputs/ref -name "*.fa" 2>/dev/null | head -5 || echo "none"; echo "=== Gene counts ===" && find results/shared -name "gene_counts.tsv" 2>/dev/null | head -5 || echo "none"; echo "=== FASTQ dirs ===" && ls -d inputs/fastq*/ inputs/raw*/ 2>/dev/null | head -5 || echo "none"`
+!`echo "=== Reference genomes ===" && find inputs/ref -name "*.fa" -o -name "*.fasta" 2>/dev/null | head -5; echo "=== Reference annotations ===" && find inputs/ref -name "*.gtf" -o -name "*.gff" 2>/dev/null | head -5; echo "=== Gene counts ===" && find inputs -maxdepth 2 -name "gene_counts*.tsv" -o -name "gene_counts*.csv" 2>/dev/null | head -5; find results/shared -name "gene_counts.tsv" 2>/dev/null | head -3; echo "=== FASTQ dirs ===" && ls -d inputs/fastq*/ inputs/raw*/ 2>/dev/null | head -5 || echo "none"`
 ```
+
+> **Scope rule:** This scan is strictly limited to the current project directory. Do NOT use paths from external context (CLAUDE.md, project-level knowledge, sibling directories, or any source outside this project folder).
 
 ### Remote Preprocessing Config
 ```

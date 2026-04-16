@@ -39,10 +39,13 @@ Update `project.name`, `project.organism`, `project.strain` in the config.
 
 ## Round 2: Data Sources
 
-Scan local `inputs/` and `results/shared/`:
-- Found `.fa` + `.gtf` -> auto-fill `paths.reference_genome` and `paths.reference_gtf`
-- Found `gene_counts.tsv` -> auto-fill `batches.batch1.gene_counts`
-- None found -> proceed to Round 2b (remote preprocessing)
+**Scan scope: ONLY within the current project directory.** Do NOT use paths from external context sources (CLAUDE.md, other project directories, sibling folders, or any prior knowledge). If a file is not found within `inputs/` or `results/shared/`, it is considered absent — ask the user.
+
+Scan `inputs/` and `results/shared/` within the project root:
+- Found `.fa` / `.fasta` in `inputs/ref/` -> auto-fill `paths.reference_genome`
+- Found `.gtf` / `.gff` in `inputs/ref/` -> auto-fill `paths.reference_gtf`
+- Found `gene_counts*.tsv` in `inputs/` or `results/shared/` -> auto-fill `batches.batch1.gene_counts`
+- Nothing found -> proceed to Round 2b (remote preprocessing)
 
 ## Round 2b: Remote Preprocessing (if no local gene_counts)
 
