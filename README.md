@@ -93,9 +93,9 @@ bash scripts/rnaseq_remote_setup.sh -H shaohua@azure
 **User workflow (on the remote server):**
 ```bash
 cd ~ && mkdir my-project && cd my-project
-/home/shaohua/evoprojects/rnaseq-analysis-plugin/scripts/rnaseq-init-project
+/fold/home/shaohua/evoprojects/rnaseq-analysis-plugin/scripts/rnaseq-init-project
 # edit configs/analysis_case.yaml
-/home/shaohua/evoprojects/rnaseq-analysis-plugin/scripts/rnaseq-run -c configs/analysis_case.yaml --steps 1a-5b
+/fold/home/shaohua/evoprojects/rnaseq-analysis-plugin/scripts/rnaseq-run -c configs/analysis_case.yaml --steps 1a-5b
 ```
 
 **From local Claude Code (SSH preprocessing):**

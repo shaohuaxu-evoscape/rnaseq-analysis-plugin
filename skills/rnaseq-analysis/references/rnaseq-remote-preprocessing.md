@@ -28,16 +28,16 @@ remote:
   host: "bioalgo-ws01"                                # Remote hostname
   user: "alice"                                       # Logged-in user's SSH username
   data_dir: "/data/rna/20260313"                      # Shared raw FASTQ location
-  work_dir: "/home/alice/rna_test"                    # User's output directory (/home/{user}/{project})
-  deploy_dir: "/home/shaohua/evoprojects/rnaseq-analysis-plugin"  # Shared pipeline scripts (admin, fixed)
+  work_dir: "/fold/home/alice/rna_test"                    # User's output directory (/fold/home/{user}/{project})
+  deploy_dir: "/fold/home/shaohua/evoprojects/rnaseq-analysis-plugin"  # Shared pipeline scripts (admin, fixed)
   reference_genome: "/ref/A316.v1.fa"
   reference_gtf: "/ref/A316.v1.gtf"
   threads: 8
 ```
 
 **Key distinction:**
-- `deploy_dir` — always `/home/shaohua/evoprojects/rnaseq-analysis-plugin/`. Scripts and step implementations live here. Never changes between users.
-- `work_dir` — always `/home/{user}/{project_name}/`. All Step 0 outputs (BAM, counts, QC) land here. Each user gets their own directory.
+- `deploy_dir` — always `/fold/home/shaohua/evoprojects/rnaseq-analysis-plugin/`. Scripts and step implementations live here. Never changes between users.
+- `work_dir` — always `/fold/home/{user}/{project_name}/`. All Step 0 outputs (BAM, counts, QC) land here. Each user gets their own directory.
 
 ## Pre-flight Checks
 

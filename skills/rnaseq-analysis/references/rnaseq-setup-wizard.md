@@ -97,8 +97,8 @@ Ask for:
   `/fold/fermentation-rna-data/data/{batch_name}/`
 
 Do NOT ask for `deploy_dir`, `work_dir`, `data_dir`, or genome paths — all derived:
-- `deploy_dir` = `/home/shaohua/evoprojects/rnaseq-analysis-plugin` (shared admin scripts, fixed)
-- `work_dir`   = `/home/{user}/{project_name}` (from SSH username + project name)
+- `deploy_dir` = `/fold/home/shaohua/evoprojects/rnaseq-analysis-plugin` (shared admin scripts, fixed)
+- `work_dir`   = `/fold/home/{user}/{project_name}` (from SSH username + project name)
 - `data_dir`   = `/fold/fermentation-rna-data/data/{batch_name}` (from batch name, fixed base path)
 
 After collecting host, user, and batch name, verify on the remote server via `mcp__remote-linux__Bash`:
@@ -133,13 +133,13 @@ remote:
 
 List available genome folders on the remote server via `mcp__remote-linux__Bash`:
 ```bash
-ls -d /home/shaohua/evoprojects/ref/*/
+ls -d /fold/home/shaohua/evoprojects/ref/*/
 ```
 
 Each subfolder is one genome (contains one `.fa` + one `.gtf`). Present the folder names to the user and ask them to choose. Then copy the chosen folder to the user's directory on the remote server:
 ```bash
 # Run on remote server via mcp__remote-linux__Bash
-cp -r /home/shaohua/evoprojects/ref/{chosen_genome}/ {work_dir}/ref/
+cp -r /fold/home/shaohua/evoprojects/ref/{chosen_genome}/ {work_dir}/ref/
 ```
 Find the `.fa` and `.gtf` inside the copied folder and set in config:
 ```yaml
@@ -166,8 +166,8 @@ remote:
   user: "alice"                                                      # logged-in user's SSH username
   batch_name: "20260313"                                             # batch ID; data_dir derived as /fold/fermentation-rna-data/data/{batch_name}
   data_dir: "/fold/fermentation-rna-data/data/20260313"             # auto-derived, do not edit manually
-  work_dir: "/home/alice/rna_test"                                   # user's output dir (/home/{user}/{project_name})
-  deploy_dir: "/home/shaohua/evoprojects/rnaseq-analysis-plugin"    # shared scripts — always shaohua's folder
+  work_dir: "/fold/home/alice/rna_test"                                   # user's output dir (/fold/home/{user}/{project_name})
+  deploy_dir: "/fold/home/shaohua/evoprojects/rnaseq-analysis-plugin"    # shared scripts — always shaohua's folder
   reference_genome: "{work_dir}/ref/{genome.fa}"                     # resolved in Step 3
   reference_gtf:    "{work_dir}/ref/{genome.gtf}"                    # resolved in Step 3
   threads: 8
