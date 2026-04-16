@@ -8,7 +8,7 @@ Deploy the RNA-seq analysis pipeline on a remote server for shared use. Code is 
 
 ```
 Remote Server
-├── /home/shaohua/rnaseq-analysis-plugin/       ← Shared code (admin maintains)
+├── /home/shaohua/evoprojects/rnaseq-analysis-plugin/       ← Shared code (admin maintains)
 │   ├── scripts/rnaseq-run                      ← Wrapper (auto-activates conda)
 │   ├── scripts/rnaseq-init-project             ← Project scaffolding for new users
 │   ├── scripts/core/                           ← Pipeline core modules
@@ -77,7 +77,7 @@ Or re-run the setup script (it pulls if the repo already exists).
 ```bash
 cd ~
 mkdir my-rnaseq-project && cd my-rnaseq-project
-/home/shaohua/rnaseq-analysis-plugin/scripts/rnaseq-init-project
+/home/shaohua/evoprojects/rnaseq-analysis-plugin/scripts/rnaseq-init-project
 ```
 
 This creates `configs/analysis_case.yaml`, `inputs/`, `results/`.
@@ -93,13 +93,13 @@ Edit `configs/analysis_case.yaml`:
 
 ```bash
 # Full pipeline
-/home/shaohua/rnaseq-analysis-plugin/scripts/rnaseq-run -c configs/analysis_case.yaml --steps 1a-5b
+/home/shaohua/evoprojects/rnaseq-analysis-plugin/scripts/rnaseq-run -c configs/analysis_case.yaml --steps 1a-5b
 
 # Preview only
-/home/shaohua/rnaseq-analysis-plugin/scripts/rnaseq-run -c configs/analysis_case.yaml --steps 1a-5b --dry-run
+/home/shaohua/evoprojects/rnaseq-analysis-plugin/scripts/rnaseq-run -c configs/analysis_case.yaml --steps 1a-5b --dry-run
 
 # List available steps
-/home/shaohua/rnaseq-analysis-plugin/scripts/rnaseq-run --list-steps
+/home/shaohua/evoprojects/rnaseq-analysis-plugin/scripts/rnaseq-run --list-steps
 ```
 
 Results appear in `./results/` under the user's project directory.
@@ -118,7 +118,7 @@ remote:
   enabled: true
   host: "azure"
   user: "shaohua"
-  deploy_dir: "/home/shaohua/rnaseq-analysis-plugin"
+  deploy_dir: "/home/shaohua/evoprojects/rnaseq-analysis-plugin"
   conda_env: "rnaseq"
 ```
 

@@ -13,7 +13,7 @@ remote:
   enabled: false
   host: ""                          # Remote hostname or SSH alias (e.g., "azure", "ws02")
   user: ""                          # SSH username
-  deploy_dir: ""                    # Plugin install path on remote (e.g., /home/shaohua/rnaseq-analysis-plugin)
+  deploy_dir: ""                    # Plugin install path on remote (e.g., /home/shaohua/evoprojects/rnaseq-analysis-plugin)
   conda_env: "rnaseq"              # Conda environment with Python dependencies
   data_dir: ""                      # Remote path to raw FASTQ data directory
   work_dir: ""                      # Remote working directory for preprocessing outputs

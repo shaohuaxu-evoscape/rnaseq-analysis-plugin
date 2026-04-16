@@ -110,7 +110,7 @@ WRAPPER="$DEPLOY_DIR/scripts/rnaseq-run"
 cat > "$WRAPPER" << WRAPPER_EOF
 #!/bin/bash
 # Wrapper: activate conda env and run the pipeline.
-# Usage: /home/shaohua/rnaseq-analysis-plugin/scripts/rnaseq-run -c config.yaml --steps 1a-5b
+# Usage: /home/shaohua/evoprojects/rnaseq-analysis-plugin/scripts/rnaseq-run -c config.yaml --steps 1a-5b
 SCRIPT_DIR="\$(cd "\$(dirname "\$0")" && pwd)"
 exec conda run --no-banner -n ${CONDA_ENV} python "\${SCRIPT_DIR}/rnaseq_run.py" "\$@"
 WRAPPER_EOF
@@ -122,7 +122,7 @@ INIT_WRAPPER="$DEPLOY_DIR/scripts/rnaseq-init-project"
 cat > "$INIT_WRAPPER" << INIT_EOF
 #!/bin/bash
 # Initialize a new RNA-seq analysis project in the current directory.
-# Usage: cd ~/my-project && /home/shaohua/rnaseq-analysis-plugin/scripts/rnaseq-init-project
+# Usage: cd ~/my-project && /home/shaohua/evoprojects/rnaseq-analysis-plugin/scripts/rnaseq-init-project
 SCRIPT_DIR="\$(cd "\$(dirname "\$0")" && pwd)"
 PLUGIN_DIR="\$(dirname "\$SCRIPT_DIR")"
 

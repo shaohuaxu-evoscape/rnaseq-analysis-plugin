@@ -78,7 +78,7 @@ Ask for:
 - Remote path to gene annotation (`.gtf`)
 
 Do NOT ask for `deploy_dir` or `work_dir` — derive them automatically:
-- `deploy_dir` is always `/home/shaohua/rnaseq-analysis-plugin` (shared admin scripts, fixed)
+- `deploy_dir` is always `/home/shaohua/evoprojects/rnaseq-analysis-plugin` (shared admin scripts, fixed)
 - `work_dir` is always `/home/{user}/{project_name}` (logged-in user's output directory, derived from SSH username and project name)
 
 Update the `remote` section in config:
@@ -89,7 +89,7 @@ remote:
   user: "alice"                                        # logged-in user's SSH username
   data_dir: "/data/rna/20260313"                       # shared raw FASTQ location
   work_dir: "/home/alice/rna_test"                     # user's output dir (derived: /home/{user}/{project_name})
-  deploy_dir: "/home/shaohua/rnaseq-analysis-plugin"  # shared scripts — always shaohua's folder
+  deploy_dir: "/home/shaohua/evoprojects/rnaseq-analysis-plugin"  # shared scripts — always shaohua's folder
   reference_genome: "/ref/A316.v1.fa"
   reference_gtf: "/ref/A316.v1.gtf"
   threads: 8

@@ -52,7 +52,7 @@ BATCH=$(read_config "list(c['batches'].keys())[0]")
 
 if [ -z "$DEPLOY_DIR" ]; then
     echo "ERROR: remote.deploy_dir not set in $CONFIG"
-    echo "Set it to the plugin install path on the remote server (e.g., /home/shaohua/rnaseq-analysis-plugin)"
+    echo "Set it to the plugin install path on the remote server (e.g., /home/shaohua/evoprojects/rnaseq-analysis-plugin)"
     exit 1
 fi
 
