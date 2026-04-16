@@ -32,8 +32,19 @@ batches:
     gene_counts: "path/to/gene_counts.tsv"
 
 # ── Target Conditions ─────────────────────────────────────────────────────────
-# Exactly two conditions for pairwise comparison.
-# "condition" must match the column prefix in gene_counts.tsv.
+# Exactly two comparison groups for pairwise DE analysis.
+# Each group is a list of {batch, condition} pairs — samples from multiple
+# batches or multiple condition labels can be merged into one group.
+# "condition" must match the column prefix in that batch's gene_counts.tsv.
+#
+# Examples:
+#   Single batch, two conditions:
+#     condition1: [{batch: batch1, condition: R1}]
+#     condition2: [{batch: batch1, condition: R2}]
+#
+#   Multi-batch merge:
+#     condition1: [{batch: batch1, condition: R1}, {batch: batch1, condition: R2}]
+#     condition2: [{batch: batch1, condition: R3}, {batch: batch2, condition: T1}]
 target_conditions:
   condition1:
     - batch: batch1
@@ -66,6 +77,8 @@ remote:
   enabled: false
   host: ""                          # Remote hostname or SSH alias (e.g., "bioalgo")
   user: ""                          # SSH username (the logged-in user)
+  ssh_auth: "key"                   # SSH auth method: "key" (public/private key) | "password"
+  ssh_key: "~/.ssh/id_rsa"         # Path to private key file (only used when ssh_auth = "key")
   batch_name: ""                    # Batch ID (e.g., "20260313"); data_dir and shared_dir are auto-derived
   data_dir: ""                      # Auto-derived: /fold/fermentation-rna-data/data/{batch_name}
   shared_dir: ""                    # Auto-derived: /fold/home/shaohua/evoprojects/common/shared/{batch_name}
