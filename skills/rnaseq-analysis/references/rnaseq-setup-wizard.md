@@ -93,12 +93,20 @@ Update `target_conditions` and `experiment.timepoints` with these values now —
 Ask for:
 - Remote host (hostname or IP)
 - SSH username (the logged-in user — NOT necessarily "shaohua")
-- Remote path to raw FASTQ data directory
+- Batch name (e.g. `20260313`) — raw FASTQ data directory is derived automatically as:
+  `/fold/fermentation-rna-data/data/{batch_name}/`
 
-Do NOT ask for `deploy_dir`, `work_dir`, or genome paths — handled below:
-- `deploy_dir` is always `/home/shaohua/evoprojects/rnaseq-analysis-plugin` (shared admin scripts, fixed)
-- `work_dir` is always `/home/{user}/{project_name}` (derived from SSH username and project name)
-- Genome paths are resolved in Step 3 below
+Do NOT ask for `deploy_dir`, `work_dir`, `data_dir`, or genome paths — all derived:
+- `deploy_dir` = `/home/shaohua/evoprojects/rnaseq-analysis-plugin` (shared admin scripts, fixed)
+- `work_dir`   = `/home/{user}/{project_name}` (from SSH username + project name)
+- `data_dir`   = `/fold/fermentation-rna-data/data/{batch_name}` (from batch name, fixed base path)
+
+After collecting host, user, and batch name, verify on the remote server via `mcp__remote-linux__Bash`:
+```bash
+ls /fold/fermentation-rna-data/data/{batch_name}/
+```
+
+Parse the FASTQ file names to identify available samples and conditions, then show them to the user. Cross-check with the target conditions declared in Step 1 and confirm which samples will be processed. If some expected conditions are missing, warn the user before continuing.
 
 **Step 3 — Reference Genome Selection and Sync:**
 
@@ -156,7 +164,8 @@ remote:
   enabled: true
   host: "bioalgo-ws01"
   user: "alice"                                                      # logged-in user's SSH username
-  data_dir: "/data/rna/20260313"                                     # shared raw FASTQ location
+  batch_name: "20260313"                                             # batch ID; data_dir derived as /fold/fermentation-rna-data/data/{batch_name}
+  data_dir: "/fold/fermentation-rna-data/data/20260313"             # auto-derived, do not edit manually
   work_dir: "/home/alice/rna_test"                                   # user's output dir (/home/{user}/{project_name})
   deploy_dir: "/home/shaohua/evoprojects/rnaseq-analysis-plugin"    # shared scripts — always shaohua's folder
   reference_genome: "{work_dir}/ref/{genome.fa}"                     # resolved in Step 3
