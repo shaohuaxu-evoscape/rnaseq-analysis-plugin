@@ -8,21 +8,36 @@ Deploy the RNA-seq analysis pipeline on a remote server for shared use. Code is 
 
 ```
 Remote Server
-├── /fold/home/shaohua/evoprojects/rnaseq-analysis-plugin/       ← Shared code (admin maintains)
-│   ├── scripts/rnaseq-run                      ← Wrapper (auto-activates conda)
-│   ├── scripts/rnaseq-init-project             ← Project scaffolding for new users
-│   ├── scripts/core/                           ← Pipeline core modules
-│   ├── scripts/steps/                          ← Step implementations
-│   └── configs/step_registry.yaml              ← Step definitions
+├── /fold/home/shaohua/evoprojects/
+│   ├── rnaseq-analysis-plugin/                 ← Shared pipeline code (admin maintains)
+│   │   ├── scripts/rnaseq-run                  ← Wrapper (auto-activates conda)
+│   │   ├── scripts/rnaseq-init-project         ← Project scaffolding for new users
+│   │   ├── scripts/core/                       ← Pipeline core modules
+│   │   ├── scripts/steps/                      ← Step implementations
+│   │   └── configs/step_registry.yaml          ← Step definitions
+│   │
+│   └── common/                                 ← Shared data (admin maintains, all users read)
+│       ├── ref/                                ← Reference genomes (e.g., A316/, CLIB89/)
+│       │   └── A316/
+│       │       ├── A316.v1.fa
+│       │       └── A316.v1.gtf
+│       └── shared/                             ← Step 0 preprocessing outputs (per batch)
+│           └── 20260313/
+│               └── 01_preprocessing/
+│                   ├── hisat2_index/
+│                   ├── clean_fastq/
+│                   ├── fastp_reports/
+│                   ├── alignment/
+│                   └── gene_counts/
+│                       └── gene_counts.tsv     ← pulled to local by all users
 │
-├── /home/userA/my-project/                     ← User A's project
+├── /fold/home/userA/my-project/                ← User A's analysis project
 │   ├── configs/analysis_case.yaml
-│   ├── inputs/ → /data/rna/batch1              ← Symlink to shared data
-│   └── results/                                ← User A's outputs
+│   └── results/                                ← User A's analysis outputs (modules 1-5)
 │
-└── /home/userB/another-project/                ← User B's project
+└── /fold/home/userB/another-project/           ← User B's analysis project
     ├── configs/analysis_case.yaml
-    └── results/                                ← User B's outputs
+    └── results/                                ← User B's analysis outputs (modules 1-5)
 ```
 
 ## Admin Setup (One-Time)
@@ -132,4 +147,4 @@ The script:
 - **conda not found**: Ensure conda is in PATH. Check `~/.bashrc` or `~/.bash_profile`.
 - **Permission denied on wrapper scripts**: Run `chmod +x ~/rnaseq-analysis-plugin/scripts/rnaseq-run`
 - **Tools not found**: Activate the conda env first: `conda activate rnaseq && which fastp`
-- **Disk full**: Check `df -h`. BAM files are large — clean old results with `rm -rf results/shared/*/01_preprocessing/alignment/`
+- **Disk full**: Check `df -h`. BAM files are large — clean old alignment files with `rm -rf /fold/home/shaohua/evoprojects/common/shared/*/01_preprocessing/alignment/`

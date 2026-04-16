@@ -60,18 +60,20 @@ paths:
 
 # ── Remote Preprocessing ──────────────────────────────────────────────────────
 # Set enabled: true if preprocessing must run on a remote server.
-# Code is shared from shaohua's deploy_dir; outputs land in the user's work_dir.
+# Step 0 outputs (BAM, gene_counts, fastp reports) land in shared_dir — shared by all users.
+# Per-user analysis results (modules 1-5) land in work_dir.
 remote:
   enabled: false
-  host: ""                          # Remote hostname or SSH alias (e.g., "bioalgo-ws01")
+  host: ""                          # Remote hostname or SSH alias (e.g., "bioalgo")
   user: ""                          # SSH username (the logged-in user)
-  batch_name: ""                    # Batch ID (e.g., "20260313"); data_dir is auto-derived
+  batch_name: ""                    # Batch ID (e.g., "20260313"); data_dir and shared_dir are auto-derived
   data_dir: ""                      # Auto-derived: /fold/fermentation-rna-data/data/{batch_name}
-  work_dir: ""                      # User output dir: /fold/home/{user}/{project_name}
+  shared_dir: ""                    # Auto-derived: /fold/home/shaohua/evoprojects/common/shared/{batch_name}
+  work_dir: ""                      # User analysis dir: /fold/home/{user}/{project_name}
   deploy_dir: ""                    # Shared pipeline scripts (always shaohua's folder)
   conda_env: "rnaseq"              # Conda environment with pipeline dependencies
-  reference_genome: ""              # Remote path to reference genome .fa
-  reference_gtf: ""                 # Remote path to gene annotation .gtf
+  reference_genome: ""              # Remote path to reference .fa (in common/ref/)
+  reference_gtf: ""                 # Remote path to gene annotation .gtf (in common/ref/)
   threads: 8                        # Threads for fastp, hisat2, samtools
 
 # ── Preprocessing Settings ────────────────────────────────────────────────────
