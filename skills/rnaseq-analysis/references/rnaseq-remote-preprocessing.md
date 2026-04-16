@@ -25,14 +25,19 @@ Read the `remote` section from `configs/analysis_case.yaml`:
 ```yaml
 remote:
   enabled: true
-  host: "bioalgo-ws01"              # Remote hostname
-  user: "shaohua"                   # SSH username
-  data_dir: "/data/rna/20260313"    # Remote path to raw FASTQ files
-  work_dir: "/home/shaohua/rnaseq"  # Remote working directory
+  host: "bioalgo-ws01"                                # Remote hostname
+  user: "alice"                                       # Logged-in user's SSH username
+  data_dir: "/data/rna/20260313"                      # Shared raw FASTQ location
+  work_dir: "/home/alice/rna_test"                    # User's output directory (/home/{user}/{project})
+  deploy_dir: "/home/shaohua/rnaseq-analysis-plugin"  # Shared pipeline scripts (admin, fixed)
   reference_genome: "/ref/A316.v1.fa"
   reference_gtf: "/ref/A316.v1.gtf"
   threads: 8
 ```
+
+**Key distinction:**
+- `deploy_dir` — always `/home/shaohua/rnaseq-analysis-plugin/`. Scripts and step implementations live here. Never changes between users.
+- `work_dir` — always `/home/{user}/{project_name}/`. All Step 0 outputs (BAM, counts, QC) land here. Each user gets their own directory.
 
 ## Pre-flight Checks
 
@@ -62,10 +67,18 @@ ls -la {reference_genome} {reference_gtf}
 ls {data_dir}/*.R1.fq.gz 2>/dev/null | head -20
 ```
 
-### 4. Create working directory
+### 4. Check shared scripts
 
 ```bash
-mkdir -p {work_dir}/{batch_id}/01_preprocessing/{hisat2_index,clean_fastq,fastp_reports,alignment,gene_counts/sample_counts}
+ls {deploy_dir}/scripts/rnaseq_run.py
+```
+
+If not found, the admin needs to deploy first. See [Remote Deployment](rnaseq-remote-deployment.md).
+
+### 5. Create working directory
+
+```bash
+mkdir -p {work_dir}/01_preprocessing/{hisat2_index,clean_fastq,fastp_reports,alignment,gene_counts/sample_counts}
 ```
 
 ## Step 0a: HISAT2 Index
@@ -73,7 +86,7 @@ mkdir -p {work_dir}/{batch_id}/01_preprocessing/{hisat2_index,clean_fastq,fastp_
 Build the genome index. Skip if index files already exist.
 
 ```bash
-INDEX_PREFIX="{work_dir}/{batch_id}/01_preprocessing/hisat2_index/$(basename {reference_genome} .fa)"
+INDEX_PREFIX="{work_dir}/01_preprocessing/hisat2_index/$(basename {reference_genome} .fa)"
 
 # Check if index already exists
 if [ -f "${INDEX_PREFIX}.1.ht2" ]; then
@@ -100,7 +113,7 @@ Run fastp for each sample. Discover samples from the data directory.
 for r1 in {data_dir}/*.R1.fq.gz; do
     SAMPLE=$(basename "$r1" .R1.fq.gz)
     R2="{data_dir}/${SAMPLE}.R2.fq.gz"
-    OUT_DIR="{work_dir}/{batch_id}/01_preprocessing"
+    OUT_DIR="{work_dir}/01_preprocessing"
 
     echo "Processing $SAMPLE ..."
     fastp \
@@ -125,8 +138,8 @@ For large numbers of samples, process in batches and report progress.
 Align each sample to the genome index.
 
 ```bash
-INDEX_PREFIX="{work_dir}/{batch_id}/01_preprocessing/hisat2_index/$(basename {reference_genome} .fa)"
-OUT_DIR="{work_dir}/{batch_id}/01_preprocessing"
+INDEX_PREFIX="{work_dir}/01_preprocessing/hisat2_index/$(basename {reference_genome} .fa)"
+OUT_DIR="{work_dir}/01_preprocessing"
 
 for r1 in ${OUT_DIR}/clean_fastq/*.R1.clean.fq.gz; do
     SAMPLE=$(basename "$r1" .R1.clean.fq.gz)
@@ -147,7 +160,7 @@ done
 Quantify gene expression for each sample, then combine into a matrix.
 
 ```bash
-OUT_DIR="{work_dir}/{batch_id}/01_preprocessing"
+OUT_DIR="{work_dir}/01_preprocessing"
 GTF="{reference_gtf}"
 
 # Count per sample
@@ -186,16 +199,23 @@ After all steps complete, use **local Bash** (not remote) to pull the gene_count
 
 ```bash
 # Create local directory
-mkdir -p results/shared/{batch_id}/01_preprocessing/gene_counts
+mkdir -p inputs/gene_counts
 
-# Pull gene counts
-scp {user}@{host}:{work_dir}/{batch_id}/01_preprocessing/gene_counts/gene_counts.tsv \
-    results/shared/{batch_id}/01_preprocessing/gene_counts/
+# Pull gene counts (work_dir is the user's project dir on the remote server)
+scp {user}@{host}:{work_dir}/01_preprocessing/gene_counts/gene_counts.tsv \
+    inputs/gene_counts/
 
 # Optionally pull fastp reports for QC review
-mkdir -p results/shared/{batch_id}/01_preprocessing/fastp_reports
-scp {user}@{host}:{work_dir}/{batch_id}/01_preprocessing/fastp_reports/*.json \
-    results/shared/{batch_id}/01_preprocessing/fastp_reports/
+mkdir -p inputs/fastp_reports
+scp {user}@{host}:{work_dir}/01_preprocessing/fastp_reports/*.json \
+    inputs/fastp_reports/
+```
+
+Update `batches.batch1.gene_counts` in `configs/analysis_case.yaml` to point to the pulled file:
+```yaml
+batches:
+  batch1:
+    gene_counts: "inputs/gene_counts/gene_counts.tsv"
 ```
 
 ## Post-Preprocessing
@@ -203,8 +223,8 @@ scp {user}@{host}:{work_dir}/{batch_id}/01_preprocessing/fastp_reports/*.json \
 Verify the gene_counts.tsv:
 
 ```bash
-head -2 results/shared/{batch_id}/01_preprocessing/gene_counts/gene_counts.tsv
-wc -l results/shared/{batch_id}/01_preprocessing/gene_counts/gene_counts.tsv
+head -2 inputs/gene_counts/gene_counts.tsv
+wc -l inputs/gene_counts/gene_counts.tsv
 ```
 
 Then proceed with local analysis:

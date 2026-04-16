@@ -72,20 +72,24 @@ Update `target_conditions` and `experiment.timepoints` with these values now —
 
 Ask for:
 - Remote host (hostname or IP)
-- SSH username
+- SSH username (the logged-in user — NOT necessarily "shaohua")
 - Remote path to raw FASTQ data directory
-- Remote working directory for pipeline outputs
 - Remote path to reference genome (`.fa`)
 - Remote path to gene annotation (`.gtf`)
+
+Do NOT ask for `deploy_dir` or `work_dir` — derive them automatically:
+- `deploy_dir` is always `/home/shaohua/rnaseq-analysis-plugin` (shared admin scripts, fixed)
+- `work_dir` is always `/home/{user}/{project_name}` (logged-in user's output directory, derived from SSH username and project name)
 
 Update the `remote` section in config:
 ```yaml
 remote:
   enabled: true
   host: "bioalgo-ws01"
-  user: "shaohua"
-  data_dir: "/data/rna/20260313"
-  work_dir: "/home/shaohua/rnaseq"
+  user: "alice"                                        # logged-in user's SSH username
+  data_dir: "/data/rna/20260313"                       # shared raw FASTQ location
+  work_dir: "/home/alice/rna_test"                     # user's output dir (derived: /home/{user}/{project_name})
+  deploy_dir: "/home/shaohua/rnaseq-analysis-plugin"  # shared scripts — always shaohua's folder
   reference_genome: "/ref/A316.v1.fa"
   reference_gtf: "/ref/A316.v1.gtf"
   threads: 8
