@@ -148,17 +148,39 @@ The filename contains no condition/timepoint information. Show the sample IDs fo
 ```
 Found in /fold/fermentation-rna-data/data/20251103/:
   Pattern : B  ({sample_id}.{R1|R2}.fq.gz)
-  Sample IDs: W1, W2, W3, W4, W5, W6
+  Sample IDs: W1, W2, W3, Y1, Y2, Y3
 ```
-Ask the user to provide condition and timepoint for each sample ID. Recommended sample_id format for output: `{condition}-{timepoint}`.
 
-Once the user provides the mapping, write `inputs/sample_manifest.tsv`:
+Ask the user two questions:
+1. What is the experiment design? **Time-series** (each sample = a different timepoint) or **Replicate** (each sample = a biological replicate at the same timepoint)?
+2. What is the condition and timepoint for each sample ID?
+
+**Sub-case B1: Time-series** — samples represent different timepoints with opaque labels.
+User specifies: W1→(W, 18h), W2→(W, 24h), W3→(W, 48h), Y1→(Y, 18h), …
+Recommended sample_id: `{condition}-{timepoint}`:
 ```
-sample_id  condition  timepoint  r1_file     r2_file
-WT-0       WT         0          W1.R1.fq.gz W1.R2.fq.gz
-WT-6       WT         6          W2.R1.fq.gz W2.R2.fq.gz
+sample_id  condition  timepoint  r1_file      r2_file
+W-18       W          18         W1.R1.fq.gz  W1.R2.fq.gz
+W-24       W          24         W2.R1.fq.gz  W2.R2.fq.gz
+W-48       W          48         W3.R1.fq.gz  W3.R2.fq.gz
+Y-18       Y          18         Y1.R1.fq.gz  Y1.R2.fq.gz
 ...
 ```
+
+**Sub-case B2: Biological replicates** — samples are replicates of the same condition at the same timepoint.
+User specifies: W1/W2/W3 → condition W, timepoint 0; Y1/Y2/Y3 → condition Y, timepoint 0.
+Recommended sample_id: `{condition}-{timepoint}-rep{n}`:
+```
+sample_id   condition  timepoint  r1_file      r2_file
+W-0-rep1    W          0          W1.R1.fq.gz  W1.R2.fq.gz
+W-0-rep2    W          0          W2.R1.fq.gz  W2.R2.fq.gz
+W-0-rep3    W          0          W3.R1.fq.gz  W3.R2.fq.gz
+Y-0-rep1    Y          0          Y1.R1.fq.gz  Y1.R2.fq.gz
+...
+```
+> Note: For replicate designs, DESeq2 will use the replicates correctly. However, time-series steps (4b temporal causality) are not applicable and should be disabled in the config.
+
+Once the user provides the mapping, write `inputs/sample_manifest.tsv` accordingly.
 
 ---
 

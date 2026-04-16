@@ -4,37 +4,34 @@
 # Edit values below, then run the pipeline.
 #
 # See the Config Reference in the rnaseq-analysis plugin for full field docs.
+#
+# Pipeline modules (in order):
+#   Module 0 (hidden) : Remote → HISAT2 Index → Fastp → HISAT2 Align → HTSeq Count
+#   Module 1          : Gene Filtering (normalization)
+#   Module 2          : Expression Summary | Correlation | PCA | Dendrogram
+#   Module 3          : DE Screening → GO | KEGG | GSEA
+#   Module 4          : Transporter | Temporal Causality | Heterologous Genes | Fermentation
+#   Module 5          : Gene Clustering → Cluster Deep-Dive
 
-# ── Remote Preprocessing ─────────────────────────────────────────────────────
-# When enabled, preprocessing (steps 0a-0d) runs on a remote server where
-# the plugin is deployed. Code is shared from shaohua's deploy_dir; results
-# are saved in the user's project directory on the remote server.
-remote:
-  enabled: false
-  host: ""                          # Remote hostname or SSH alias (e.g., "azure", "ws02")
-  user: ""                          # SSH username
-  deploy_dir: ""                    # Plugin install path on remote (e.g., /fold/home/shaohua/evoprojects/rnaseq-analysis-plugin)
-  conda_env: "rnaseq"              # Conda environment with Python dependencies
-  data_dir: ""                      # Remote path to raw FASTQ data directory
-  work_dir: ""                      # Remote working directory for preprocessing outputs
-  reference_genome: ""              # Remote path to reference genome .fa
-  reference_gtf: ""                 # Remote path to gene annotation .gtf
-  threads: 8                        # Threads for remote tools (fastp, hisat2, samtools)
+# ── Project Metadata ──────────────────────────────────────────────────────────
+project:
+  name: "My Project"
+  organism: "Species name"
+  strain: ""
+  organism_taxid: 0             # NCBI taxonomy ID (e.g., 4952 for Y. lipolytica)
+  gene_id_prefix: ""            # Gene name prefix in count matrix (e.g., "YALI1_") — FILL THIS IN
 
-# ── Run settings ─────────────────────────────────────────────────────────────
+# ── Run Settings ──────────────────────────────────────────────────────────────
 run_name: "my_analysis"
 
-module1_overrides: {}
-
-# ── Batch inputs ─────────────────────────────────────────────────────────────
-# Define your data sources. Each batch needs either a pre-computed count
-# matrix or a path to raw FASTQ files for automatic preprocessing.
+# ── Batch Inputs ──────────────────────────────────────────────────────────────
+# Pre-computed gene count matrix (TSV: gene_id | {condition}-{timepoint} columns).
+# If gene_counts.tsv is missing, preprocessing (Module 0) runs automatically.
 batches:
   batch1:
-    gene_counts: "path/to/gene_counts.tsv"   # TSV: gene_id | cond-timepoint columns
-    # raw_fastq_dir: "/path/to/raw/fastq"    # Uncomment for auto preprocessing
+    gene_counts: "path/to/gene_counts.tsv"
 
-# ── Target conditions ────────────────────────────────────────────────────────
+# ── Target Conditions ─────────────────────────────────────────────────────────
 # Exactly two conditions for pairwise comparison.
 # "condition" must match the column prefix in gene_counts.tsv.
 target_conditions:
@@ -45,31 +42,44 @@ target_conditions:
     - batch: batch1
       condition: TREATMENT     # e.g., column names: TREATMENT-0, TREATMENT-24
 
-# ── Project metadata ─────────────────────────────────────────────────────────
-project:
-  name: "My Project"
-  organism: "Species name"
-  strain: ""
-  organism_taxid: 0             # NCBI taxonomy ID (e.g., 4952 for Y. lipolytica)
-  gene_id_prefix: ""            # Gene name prefix in count matrix (e.g., "YALI1_") — FILL THIS IN
-
-# ── Analysis selection ───────────────────────────────────────────────────────
+# ── Experiment Design ─────────────────────────────────────────────────────────
 experiment:
   # If omitted, all shared timepoints between the two target conditions
-  # will be detected automatically.
+  # will be detected automatically from gene_counts.tsv column names.
   # timepoints: [0, 6, 12, 24, 48]
 
-# ── Input paths ──────────────────────────────────────────────────────────────
+# ══ Module 0: Preprocessing ═══════════════════════════════════════════════════
+# Steps 0a-0d: HISAT2 index → Fastp QC → HISAT2 alignment → HTSeq count
+# Auto-triggered when gene_counts.tsv is missing.
+# When remote.enabled = true, runs on a remote server via SSH.
+
+# ── Local Reference Files ─────────────────────────────────────────────────────
 paths:
   reference_genome: "inputs/ref/genome.fa"
   reference_gtf: "inputs/ref/genes.gtf"
 
-# ── Hidden Preprocessing (auto-triggered when gene_counts.tsv is missing) ───
+# ── Remote Preprocessing ──────────────────────────────────────────────────────
+# Set enabled: true if preprocessing must run on a remote server.
+# Code is shared from shaohua's deploy_dir; outputs land in the user's work_dir.
+remote:
+  enabled: false
+  host: ""                          # Remote hostname or SSH alias (e.g., "bioalgo-ws01")
+  user: ""                          # SSH username (the logged-in user)
+  batch_name: ""                    # Batch ID (e.g., "20260313"); data_dir is auto-derived
+  data_dir: ""                      # Auto-derived: /fold/fermentation-rna-data/data/{batch_name}
+  work_dir: ""                      # User output dir: /fold/home/{user}/{project_name}
+  deploy_dir: ""                    # Shared pipeline scripts (always shaohua's folder)
+  conda_env: "rnaseq"              # Conda environment with pipeline dependencies
+  reference_genome: ""              # Remote path to reference genome .fa
+  reference_gtf: ""                 # Remote path to gene annotation .gtf
+  threads: 8                        # Threads for fastp, hisat2, samtools
+
+# ── Preprocessing Settings ────────────────────────────────────────────────────
 preprocessing:
   threads: 8
-  test_n_samples: 0
+  test_n_samples: 0                 # Set > 0 to process only N samples (quick test)
 
-  # Two FASTQ naming patterns exist across batches (read tag is always .R1/.R2):
+  # FASTQ naming patterns across batches (read tag is always .R1/.R2):
   #   Pattern A — condition + timepoint encoded in filename:
   #     {condition}-{timepoint}.{R1|R2}.fq.gz   e.g. R1-18.R1.fq.gz
   #   Pattern B — opaque sample ID only:
@@ -77,12 +87,14 @@ preprocessing:
   #
   # "auto" detects the pattern from the batch directory.
   # For Pattern B batches, the wizard will ask you to fill in sample_manifest manually.
-  fastq_pattern: "auto"   # "auto" | "A" | "B"
+  fastq_pattern: "auto"             # "auto" | "A" | "B"
 
   # Sample manifest (auto-generated for Pattern A; fill in manually for Pattern B).
   # TSV columns: sample_id  condition  timepoint  r1_file  r2_file
   # sample_id becomes the gene_counts.tsv column name.
-  # Recommended format: {condition}-{timepoint}  (e.g. R1-18)
+  # Recommended formats:
+  #   Time-series : {condition}-{timepoint}       (e.g. R1-18)
+  #   Replicates  : {condition}-{timepoint}-rep{n} (e.g. WT-0-rep1)
   sample_manifest: "inputs/sample_manifest.tsv"
 
   hisat2_index:
@@ -98,7 +110,7 @@ preprocessing:
   htseq_count:
     enabled: true
 
-# ── Normalization ────────────────────────────────────────────────────────────
+# ══ Module 1: Normalization ════════════════════════════════════════════════════
 normalization:
   method: "tpm"              # "cpm" | "tpm" | "fpkm"
   log_transform: true
@@ -107,73 +119,70 @@ normalization:
     min_expr: 1.0
     min_samples: 2
 
-# ── Sample Analysis ──────────────────────────────────────────────────────────
+# ══ Module 2: Sample Analysis ══════════════════════════════════════════════════
 sample_analysis:
-  expression_summary:
+  expression_summary:        # Step 2a
     enabled: true
     stats: ["mean", "median", "cv"]
-  correlation:
+  correlation:               # Step 2b
     enabled: true
     method: "pearson"
     plot_upper_triangle: true
     annot_fontsize: 8
-  pca:
+  pca:                       # Step 2c
     enabled: true
     n_components: 5
     plot_pairs: [[1, 2], [1, 3]]
-  clustering:
+  dendrogram:                # Step 2d
     enabled: true
     top_n_genes: 2000
-    k_range: [4, 12]
-    fixed_k: 7
-    random_state: 42
 
-# ── Differential Analysis ────────────────────────────────────────────────────
+# ══ Module 3: Differential Analysis ═══════════════════════════════════════════
 differential_analysis:
-  de_screening:
+  de_screening:              # Step 3a
     enabled: true
-    method: "deseq2_wald"     # DESeq2 Wald test on raw counts; "ols" for legacy OLS fallback
+    method: "deseq2_wald"   # DESeq2 Wald test on raw counts; "ols" for legacy OLS fallback
     fdr_threshold: 0.05
-    log2fc_threshold: 0.585    # = log2(1.5)
+    log2fc_threshold: 0.585  # = log2(1.5)
     fdr_method: "bh"
-  go_enrichment:
+  go_enrichment:             # Step 3b
     enabled: true
-    organism_taxid: 0          # NCBI taxonomy ID — FILL THIS IN
+    organism_taxid: 0        # NCBI taxonomy ID — FILL THIS IN
     ontologies: ["BP", "MF", "CC"]
     sig_threshold: 0.05
     min_term_genes: 5
     max_term_genes: 500
     top_n_plot: 20
-  kegg_enrichment:
+  kegg_enrichment:           # Step 3c
     enabled: true
-    organism: ""               # KEGG organism code — FILL THIS IN (e.g., "sce", "eco")
+    organism: ""             # KEGG organism code — FILL THIS IN (e.g., "sce", "eco", "yli")
     sig_threshold: 0.05
     min_pathway_genes: 5
     max_pathway_genes: 500
     top_n_plot: 20
-  gsea:
+  gsea:                      # Step 3d
     enabled: true
     ranking_metric: "mean_log2fc"
     min_size: 10
     max_size: 500
     permutations: 1000
 
-# ── Advanced Analysis ────────────────────────────────────────────────────────
+# ══ Module 4: Advanced Analysis ════════════════════════════════════════════════
 advanced_analysis:
-  transporter_aminopeptidase:
-    enabled: false             # Requires organism-specific GO annotations
+  transporter_aminopeptidase: # Step 4a
+    enabled: false            # Requires organism-specific GO annotations
 
-  temporal_causality:
-    enabled: false             # Enable and configure gene modules below if applicable
-    # modules:                 # Define organism-specific gene modules for temporal analysis
+  temporal_causality:         # Step 4b
+    enabled: false            # Enable and configure gene modules below if applicable
+    # modules:                # Define organism-specific gene modules for temporal analysis
     #   torc1_activators: ["GENE_A", "GENE_B"]   # TORC1 activator genes
     #   torc1_neg_regs: ["GENE_C", "GENE_D"]     # TORC1 negative regulators
     #   sterol: ["GENE_E", "GENE_F"]             # Sterol pathway genes
     #   fa_degradation: ["GENE_G", "GENE_H"]     # Fatty acid degradation genes
     #   mva: ["GENE_I", "GENE_J"]                # MVA pathway genes
 
-  heterologous_genes:
-    enabled: false             # Enable and configure gene_list below if applicable
+  heterologous_genes:         # Step 4c
+    enabled: false            # Enable and configure gene_list below if applicable
     # gene_list:
     #   - name: "GeneA"
     #     function: "Description of function"
@@ -181,27 +190,33 @@ advanced_analysis:
     #   - name: "GeneB"
     #     function: "Description of function"
     #     color: "#1976D2"
-    # fusion_rules: []         # Optional: [{fusion: "FusedAB", parts: ["GeneA", "GeneB"]}]
+    # fusion_rules: []        # Optional: [{fusion: "FusedAB", parts: ["GeneA", "GeneB"]}]
 
-  fermentation_overview:
-    enabled: false             # Enable and configure below if you have fermentation data
+  fermentation_overview:      # Step 4d
+    enabled: false            # Enable and configure below if you have fermentation data
     # data_file: "inputs/fermentation_data.xlsx"
     # sheet_name: "Sheet1"
     # reactor_id_column: "Reactor_ID"
     # time_column: "Run_time (t)"
     # reactor_ids: ["R01", "R02"]
-    # metrics:                 # Column names to plot
+    # metrics:                # Column names to plot
     #   biomass: "Biomass (g)"
     #   product: "Product (%)"
     #   substrate: "Substrate (g/L)"
     #   feed: "Feed_amount (g)"
 
-# ── Cluster Analysis ─────────────────────────────────────────────────────────
+# ══ Module 5: Cluster Analysis ═════════════════════════════════════════════════
 cluster_analysis:
-  cluster_deepdive:
+  gene_clustering:            # Step 5a
+    enabled: true
+    top_n_genes: 2000
+    k_range: [4, 12]
+    fixed_k: 7
+    random_state: 42
+  cluster_deepdive:           # Step 5b
     enabled: true
 
-# ── Plot Settings ────────────────────────────────────────────────────────────
+# ── Plot Settings ─────────────────────────────────────────────────────────────
 plot:
   dpi: 300
   format: "png"
