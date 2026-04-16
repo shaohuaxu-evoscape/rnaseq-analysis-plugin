@@ -69,6 +69,16 @@ preprocessing:
   threads: 8
   test_n_samples: 0
 
+  # FASTQ naming convention on the remote server.
+  # Pattern: {condition}-{timepoint}.{R1|R2}.fq.gz
+  # Sample ID = "{condition}-{timepoint}" (must match gene_counts.tsv column names).
+  # Only samples whose condition is in target_conditions AND whose timepoint is in
+  # experiment.timepoints will be processed. Leave sample_filter empty to process all.
+  fastq_pattern: "{condition}-{timepoint}.{read}.fq.gz"
+  sample_filter:
+    conditions: []    # e.g. ["R1", "R2"] — leave empty to use all target_conditions
+    timepoints: []    # e.g. [18, 24, 48] — leave empty to use all experiment.timepoints
+
   hisat2_index:
     enabled: true
   fastp:

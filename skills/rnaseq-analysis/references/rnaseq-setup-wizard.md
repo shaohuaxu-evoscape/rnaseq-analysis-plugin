@@ -106,7 +106,41 @@ After collecting host, user, and batch name, verify on the remote server via `mc
 ls /fold/fermentation-rna-data/data/{batch_name}/
 ```
 
-Parse the FASTQ file names to identify available samples and conditions, then show them to the user. Cross-check with the target conditions declared in Step 1 and confirm which samples will be processed. If some expected conditions are missing, warn the user before continuing.
+FASTQ files follow the naming convention: **`{condition}-{timepoint}.{R1|R2}.fq.gz`**  
+Sample ID = `{condition}-{timepoint}` (will become gene_counts.tsv column names).
+
+Parse the listed file names to extract available conditions and timepoints:
+```python
+import re
+conditions_found, timepoints_found = set(), set()
+for f in files:
+    m = re.match(r'^(.+)-(\d+)\.(R1|R2)\.fq\.gz$', f)
+    if m:
+        conditions_found.add(m.group(1))
+        timepoints_found.add(int(m.group(2)))
+```
+
+Show the user a summary table, for example:
+```
+Found in /fold/fermentation-rna-data/data/20260313/:
+  Conditions : R1, R2, R5, R6
+  Timepoints : 18, 24, 48, 66, 78
+  Total samples: 20 (paired-end)
+```
+
+Cross-check with the target conditions declared in Step 1:
+- Declared condition **missing** from directory → warn user, ask to correct or continue
+- Extra conditions exist → note them; they will be filtered out during preprocessing
+- Confirm final sample list before proceeding
+
+Then write `preprocessing.sample_filter` into config to restrict processing to declared conditions only:
+```yaml
+preprocessing:
+  fastq_pattern: "{condition}-{timepoint}.{read}.fq.gz"
+  sample_filter:
+    conditions: ["R1", "R2"]   # only the two declared target conditions
+    timepoints: []              # empty = all detected timepoints
+```
 
 **Step 3 — Reference Genome Selection and Sync:**
 

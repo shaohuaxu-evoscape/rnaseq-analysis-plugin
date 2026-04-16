@@ -106,32 +106,61 @@ fi
 
 ## Step 0b: Fastp QC/Trim
 
-Run fastp for each sample. Discover samples from the data directory.
+FASTQ naming convention: `{condition}-{timepoint}.{R1|R2}.fq.gz`  
+Sample ID = `{condition}-{timepoint}` (becomes gene_counts.tsv column names).
+
+Discover samples from the data directory and filter by `preprocessing.sample_filter` in config. If `sample_filter.conditions` is empty, process all conditions found; similarly for timepoints.
 
 ```bash
-# Discover sample IDs
-for r1 in {data_dir}/*.R1.fq.gz; do
-    SAMPLE=$(basename "$r1" .R1.fq.gz)
+OUT_DIR="{work_dir}/01_preprocessing"
+
+# Build sample list filtered by target conditions and timepoints
+python3 - <<'EOF'
+import re, os, json
+
+data_dir = "{data_dir}"
+filter_conditions = {sample_filter_conditions}   # e.g. ["R1", "R2"] or []
+filter_timepoints = {sample_filter_timepoints}   # e.g. [18, 24, 48] or []
+
+samples = []
+for f in sorted(os.listdir(data_dir)):
+    m = re.match(r'^(.+)-(\d+)\.R1\.fq\.gz$', f)
+    if not m:
+        continue
+    cond, tp = m.group(1), int(m.group(2))
+    if filter_conditions and cond not in filter_conditions:
+        continue
+    if filter_timepoints and tp not in filter_timepoints:
+        continue
+    samples.append(f"{cond}-{tp}")
+
+print('\n'.join(samples))
+EOF
+) > /tmp/sample_list.txt
+
+echo "Samples to process:"
+cat /tmp/sample_list.txt
+
+# Run fastp for each sample
+while IFS= read -r SAMPLE; do
+    R1="{data_dir}/${SAMPLE}.R1.fq.gz"
     R2="{data_dir}/${SAMPLE}.R2.fq.gz"
-    OUT_DIR="{work_dir}/01_preprocessing"
 
     echo "Processing $SAMPLE ..."
     fastp \
-        -i "$r1" -I "$R2" \
+        -i "$R1" -I "$R2" \
         -o "${OUT_DIR}/clean_fastq/${SAMPLE}.R1.clean.fq.gz" \
         -O "${OUT_DIR}/clean_fastq/${SAMPLE}.R2.clean.fq.gz" \
         --json "${OUT_DIR}/fastp_reports/${SAMPLE}.fastp.json" \
         --html "${OUT_DIR}/fastp_reports/${SAMPLE}.fastp.html" \
         --cut_front --cut_tail --cut_window_size 4 \
-        --cut_mean_quality 20 \
-        --qualified_quality_phred 20 \
-        --unqualified_percent_limit 40 \
-        --length_required 50 \
+        --cut_mean_quality {fastp.cut_mean_quality} \
+        --qualified_quality_phred {fastp.qualified_quality_phred} \
+        --unqualified_percent_limit {fastp.unqualified_percent_limit} \
+        --length_required {fastp.length_required} \
         --thread {threads}
-done
+done < /tmp/sample_list.txt
 ```
-
-For large numbers of samples, process in batches and report progress.
 
 ## Step 0c: HISAT2 Alignment
 
