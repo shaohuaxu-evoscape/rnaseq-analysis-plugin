@@ -43,18 +43,23 @@ Update `project.name`, `project.organism`, `project.strain` in the config.
 
 ### 2a — Reference Genome (local scan)
 
-Scan `inputs/ref/` for genome files:
+A genome lives in a subfolder under `inputs/ref/`, containing exactly one `.fa` (or `.fasta`) and one `.gtf` (or `.gff`). Scan by listing subfolders:
 
 ```bash
-find inputs/ref -name "*.fa" -o -name "*.fasta" 2>/dev/null
-find inputs/ref -name "*.gtf" -o -name "*.gff"  2>/dev/null
+ls -d inputs/ref/*/  2>/dev/null
 ```
 
-- **Found exactly one `.fa` + one `.gtf`** → confirm with user: *"Found genome: {name}. Use this one?"*
-  - Yes → record as local genome; auto-fill `paths.reference_genome` and `paths.reference_gtf`
+For each subfolder found, confirm it contains a `.fa` and a `.gtf`:
+```bash
+find inputs/ref/{name}/ -maxdepth 1 \( -name "*.fa" -o -name "*.fasta" \)
+find inputs/ref/{name}/ -maxdepth 1 \( -name "*.gtf" -o -name "*.gff" \)
+```
+
+- **Found exactly one subfolder (with valid `.fa` + `.gtf`)** → confirm with user: *"Found genome: `{folder_name}`. Use this one?"*
+  - Yes → record as local genome; auto-fill `paths.reference_genome` and `paths.reference_gtf` to the files inside
   - No → treat as not found (proceed to shared genome selection in Round 2b)
-- **Found multiple `.fa` files** → list them, ask user to pick one; also pick matching `.gtf`
-- **None found** → record as "no local genome" (handled in Round 2b Step 2)
+- **Found multiple subfolders** → list them by folder name, ask user to pick one
+- **No subfolders found** → record as "no local genome" (handled in Round 2b Step 3)
 
 ### 2b — Gene Counts (local scan)
 
@@ -99,35 +104,36 @@ Do NOT ask for `deploy_dir`, `work_dir`, or genome paths — handled below:
 
 Three sub-cases based on the Round 2a scan result:
 
-**Case 1: Local genome found in `inputs/ref/`**
+**Case 1: Local genome found in `inputs/ref/{genome_folder}/`**
 
-The selected local genome will be uploaded to the remote server:
+Upload the entire genome folder to the remote server:
 ```bash
-# Run from local machine
-mkdir -p {work_dir}/ref   # create on remote first via mcp__remote-linux__Bash
-scp inputs/ref/{genome.fa} {user}@{host}:{work_dir}/ref/
-scp inputs/ref/{genome.gtf} {user}@{host}:{work_dir}/ref/
+# Create ref dir on remote (via mcp__remote-linux__Bash)
+mkdir -p {work_dir}/ref
+
+# Upload genome folder from local (via local Bash)
+scp -r inputs/ref/{genome_folder}/ {user}@{host}:{work_dir}/ref/
 ```
-Set remote genome paths in config:
+Then find the `.fa` and `.gtf` inside the uploaded folder and set in config:
 ```yaml
 remote:
-  reference_genome: "{work_dir}/ref/{genome.fa}"
-  reference_gtf:    "{work_dir}/ref/{genome.gtf}"
+  reference_genome: "{work_dir}/ref/{genome_folder}/{genome.fa}"
+  reference_gtf:    "{work_dir}/ref/{genome_folder}/{genome.gtf}"
 ```
 
 **Case 2: No local genome — use shared genome library**
 
-List available genomes on the remote server via `mcp__remote-linux__Bash`:
+List available genome folders on the remote server via `mcp__remote-linux__Bash`:
 ```bash
-ls /home/shaohua/evoprojects/ref/
+ls -d /home/shaohua/evoprojects/ref/*/
 ```
 
-Present the list to the user and ask them to choose. Then copy the chosen genome into the user's folder on the remote server:
+Each subfolder is one genome (contains one `.fa` + one `.gtf`). Present the folder names to the user and ask them to choose. Then copy the chosen folder to the user's directory on the remote server:
 ```bash
 # Run on remote server via mcp__remote-linux__Bash
 cp -r /home/shaohua/evoprojects/ref/{chosen_genome}/ {work_dir}/ref/
 ```
-Set remote genome paths in config (find the `.fa` and `.gtf` inside the copied folder):
+Find the `.fa` and `.gtf` inside the copied folder and set in config:
 ```yaml
 remote:
   reference_genome: "{work_dir}/ref/{chosen_genome}/{genome.fa}"
@@ -136,11 +142,11 @@ remote:
 
 **Case 3: No local genome, user wants a custom path**
 
-Ask the user for the full remote paths to `.fa` and `.gtf`. These files are already on the remote server and do not need to be copied.
+Ask the user for the full remote path to the genome folder. These files are already on the remote server and do not need to be copied.
 ```yaml
 remote:
-  reference_genome: "/path/on/server/genome.fa"
-  reference_gtf:    "/path/on/server/genome.gtf"
+  reference_genome: "/custom/path/{genome_folder}/{genome.fa}"
+  reference_gtf:    "/custom/path/{genome_folder}/{genome.gtf}"
 ```
 
 **Step 4 — Write complete remote config:**
