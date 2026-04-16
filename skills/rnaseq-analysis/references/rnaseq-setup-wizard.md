@@ -41,19 +41,34 @@ Update `project.name`, `project.organism`, `project.strain` in the config.
 
 **Scan scope: ONLY within the current project directory.** Do NOT use paths from external context sources (CLAUDE.md, other project directories, sibling folders, or any prior knowledge). If a file is not found within `inputs/` or `results/shared/`, it is considered absent — ask the user.
 
-Scan `inputs/` and `results/shared/` within the project root:
-- Found `.fa` / `.fasta` in `inputs/ref/` → auto-fill `paths.reference_genome`
-- Found `.gtf` / `.gff` in `inputs/ref/` → auto-fill `paths.reference_gtf`
-- Found `gene_counts*.tsv` in `inputs/` or `results/shared/` → auto-fill `batches.batch1.gene_counts`, **skip to Round 3**
+### 2a — Reference Genome (local scan)
 
-If no gene_counts found, ask the user to choose one of two paths:
+Scan `inputs/ref/` for genome files:
 
-> **Option A — I already have a gene counts file**
-> Please provide the absolute path to the file.
-> (Accept path → set `batches.batch1.gene_counts`, then proceed to Round 3)
+```bash
+find inputs/ref -name "*.fa" -o -name "*.fasta" 2>/dev/null
+find inputs/ref -name "*.gtf" -o -name "*.gff"  2>/dev/null
+```
 
-> **Option B — I need to run preprocessing from raw FASTQ**
-> (Proceed to Round 2b)
+- **Found exactly one `.fa` + one `.gtf`** → confirm with user: *"Found genome: {name}. Use this one?"*
+  - Yes → record as local genome; auto-fill `paths.reference_genome` and `paths.reference_gtf`
+  - No → treat as not found (proceed to shared genome selection in Round 2b)
+- **Found multiple `.fa` files** → list them, ask user to pick one; also pick matching `.gtf`
+- **None found** → record as "no local genome" (handled in Round 2b Step 2)
+
+### 2b — Gene Counts (local scan)
+
+Scan `inputs/` and `results/shared/` for gene counts:
+
+- Found `gene_counts*.tsv` → auto-fill `batches.batch1.gene_counts`, **skip to Round 3**
+- Not found → ask the user:
+
+  > **Option A — I already have a gene counts file**
+  > Please provide the absolute path to the file.
+  > (Set `batches.batch1.gene_counts`, proceed to Round 3)
+
+  > **Option B — I need to run preprocessing from raw FASTQ**
+  > (Proceed to Round 2b: Remote Preprocessing Setup)
 
 ## Round 2b: Remote Preprocessing Setup
 
@@ -68,30 +83,78 @@ Ask:
 
 Update `target_conditions` and `experiment.timepoints` with these values now — they will be confirmed/corrected after Step 0 produces the gene_counts header.
 
-**Step 2 — Collect remote server configuration:**
+**Step 2 — Collect basic remote server configuration:**
 
 Ask for:
 - Remote host (hostname or IP)
 - SSH username (the logged-in user — NOT necessarily "shaohua")
 - Remote path to raw FASTQ data directory
-- Remote path to reference genome (`.fa`)
-- Remote path to gene annotation (`.gtf`)
 
-Do NOT ask for `deploy_dir` or `work_dir` — derive them automatically:
+Do NOT ask for `deploy_dir`, `work_dir`, or genome paths — handled below:
 - `deploy_dir` is always `/home/shaohua/evoprojects/rnaseq-analysis-plugin` (shared admin scripts, fixed)
-- `work_dir` is always `/home/{user}/{project_name}` (logged-in user's output directory, derived from SSH username and project name)
+- `work_dir` is always `/home/{user}/{project_name}` (derived from SSH username and project name)
+- Genome paths are resolved in Step 3 below
 
-Update the `remote` section in config:
+**Step 3 — Reference Genome Selection and Sync:**
+
+Three sub-cases based on the Round 2a scan result:
+
+**Case 1: Local genome found in `inputs/ref/`**
+
+The selected local genome will be uploaded to the remote server:
+```bash
+# Run from local machine
+mkdir -p {work_dir}/ref   # create on remote first via mcp__remote-linux__Bash
+scp inputs/ref/{genome.fa} {user}@{host}:{work_dir}/ref/
+scp inputs/ref/{genome.gtf} {user}@{host}:{work_dir}/ref/
+```
+Set remote genome paths in config:
+```yaml
+remote:
+  reference_genome: "{work_dir}/ref/{genome.fa}"
+  reference_gtf:    "{work_dir}/ref/{genome.gtf}"
+```
+
+**Case 2: No local genome — use shared genome library**
+
+List available genomes on the remote server via `mcp__remote-linux__Bash`:
+```bash
+ls /home/shaohua/evoprojects/ref/
+```
+
+Present the list to the user and ask them to choose. Then copy the chosen genome into the user's folder on the remote server:
+```bash
+# Run on remote server via mcp__remote-linux__Bash
+cp -r /home/shaohua/evoprojects/ref/{chosen_genome}/ {work_dir}/ref/
+```
+Set remote genome paths in config (find the `.fa` and `.gtf` inside the copied folder):
+```yaml
+remote:
+  reference_genome: "{work_dir}/ref/{chosen_genome}/{genome.fa}"
+  reference_gtf:    "{work_dir}/ref/{chosen_genome}/{genome.gtf}"
+```
+
+**Case 3: No local genome, user wants a custom path**
+
+Ask the user for the full remote paths to `.fa` and `.gtf`. These files are already on the remote server and do not need to be copied.
+```yaml
+remote:
+  reference_genome: "/path/on/server/genome.fa"
+  reference_gtf:    "/path/on/server/genome.gtf"
+```
+
+**Step 4 — Write complete remote config:**
+
 ```yaml
 remote:
   enabled: true
   host: "bioalgo-ws01"
-  user: "alice"                                        # logged-in user's SSH username
-  data_dir: "/data/rna/20260313"                       # shared raw FASTQ location
-  work_dir: "/home/alice/rna_test"                     # user's output dir (derived: /home/{user}/{project_name})
-  deploy_dir: "/home/shaohua/evoprojects/rnaseq-analysis-plugin"  # shared scripts — always shaohua's folder
-  reference_genome: "/ref/A316.v1.fa"
-  reference_gtf: "/ref/A316.v1.gtf"
+  user: "alice"                                                      # logged-in user's SSH username
+  data_dir: "/data/rna/20260313"                                     # shared raw FASTQ location
+  work_dir: "/home/alice/rna_test"                                   # user's output dir (/home/{user}/{project_name})
+  deploy_dir: "/home/shaohua/evoprojects/rnaseq-analysis-plugin"    # shared scripts — always shaohua's folder
+  reference_genome: "{work_dir}/ref/{genome.fa}"                     # resolved in Step 3
+  reference_gtf:    "{work_dir}/ref/{genome.gtf}"                    # resolved in Step 3
   threads: 8
 ```
 
