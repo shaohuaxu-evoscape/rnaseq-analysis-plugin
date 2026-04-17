@@ -251,11 +251,21 @@ A **comparison group** (condition1 / condition2) can contain samples from multip
 
 **Define batches:**
 
-Ask how many batches are involved (free text, default 1):
+Ask how many batches are involved using a numbered menu (default 1):
 
 ```
-涉及几个批次？（直接回车默认为 1）：_______________
+┌─ Batch Count ─────────────────────────────────────────────┐
+│  涉及几个批次？
+│
+│  [1]  1 个批次   ← default
+│  [2]  2 个批次
+│  [3]  3 个批次
+│  [4]  更多（手动输入数字）
+└───────────────────────────────────────────────────────────┘
+输入编号：
 ```
+
+If **[4]** is selected, ask for the number as free text.
 
 For each batch (repeat until all batches are defined), ask for the batch ID (the remote data directory name) as free text:
 
@@ -281,14 +291,13 @@ Echo summary:
 
 **Define comparison groups:**
 
-First, ask the user to name the two comparison groups so they know what they're assigning to:
+First, ask the user to name the two comparison groups in a single input, separated by semicolon:
 
 ```
-请为两个比较组命名（这将作为分析结果中的组别标签）：
-
-  Condition 1 名称（例如 Control、R1_recipe）：_______________
-  Condition 2 名称（例如 Treatment、R2_recipe）：_______________
+请为两个比较组命名（用分号隔开，例如 Control ; Treatment）：_______________
 ```
+
+Parse by splitting on `;`. Trim whitespace from each part.
 
 Echo:
 ```
@@ -342,7 +351,7 @@ Ask only if the user wants to restrict to a subset:
 ```
 
 - **[1] Auto-detect**: leave `experiment.timepoints` commented out in config.
-- **[2] Specify**: ask for timepoints as free text (comma-separated), then set `experiment.timepoints: [...]` in config.
+- **[2] Specify**: ask for timepoints as free text (comma-separated), then set `experiment.timepoints: [...]` in config. If the user enters timepoints directly (bypassing the menu), treat it as option [2] with those values. After gene_counts.tsv is available, validate specified timepoints against actual data — silently drop any that are not found (do NOT substitute or add values).
 
 Update `target_conditions` in config.
 

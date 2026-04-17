@@ -214,36 +214,36 @@ print(f'Combined {len(frames)} samples, {len(combined)} genes')
 
 ## Pull Results Back to Local
 
-After all steps complete, use **local Bash** (not remote) to pull the gene_counts.tsv back from `shared_dir`:
+After all steps complete, use **local Bash** (not remote) to pull the gene_counts.tsv back from `shared_dir`.
+
+The local destination mirrors the pipeline's default auto-detection path (`results/shared/{batch_name}/01_preprocessing/...`), so no manual config update is needed.
 
 ```bash
-# Create local directory
-mkdir -p inputs/gene_counts
+# {batch_name} = the batch key in configs/analysis_case.yaml (e.g., batch1)
+BATCH_NAME="{batch_name}"
+
+# Create local directories (mirrors server path structure)
+mkdir -p results/shared/${BATCH_NAME}/01_preprocessing/gene_counts
+mkdir -p results/shared/${BATCH_NAME}/01_preprocessing/fastp_reports
 
 # Pull gene counts from shared directory
 scp {user}@{host}:{shared_dir}/01_preprocessing/gene_counts/gene_counts.tsv \
-    inputs/gene_counts/
+    results/shared/${BATCH_NAME}/01_preprocessing/gene_counts/
 
 # Optionally pull fastp reports for QC review
-mkdir -p inputs/fastp_reports
 scp {user}@{host}:{shared_dir}/01_preprocessing/fastp_reports/*.json \
-    inputs/fastp_reports/
+    results/shared/${BATCH_NAME}/01_preprocessing/fastp_reports/
 ```
 
-Update `batches.batch1.gene_counts` in `configs/analysis_case.yaml` to point to the pulled file:
-```yaml
-batches:
-  batch1:
-    gene_counts: "inputs/gene_counts/gene_counts.tsv"
-```
+The pipeline will auto-detect `results/shared/{batch_name}/01_preprocessing/gene_counts/gene_counts.tsv` — no need to set `gene_counts` in the config.
 
 ## Post-Preprocessing
 
 Verify the gene_counts.tsv:
 
 ```bash
-head -2 inputs/gene_counts/gene_counts.tsv
-wc -l inputs/gene_counts/gene_counts.tsv
+head -2 results/shared/{batch_name}/01_preprocessing/gene_counts/gene_counts.tsv
+wc -l results/shared/{batch_name}/01_preprocessing/gene_counts/gene_counts.tsv
 ```
 
 Then proceed with local analysis:

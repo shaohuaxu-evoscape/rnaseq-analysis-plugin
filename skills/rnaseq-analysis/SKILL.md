@@ -45,40 +45,24 @@ User request: $ARGUMENTS
 
 ---
 
-## Plugin Scripts
-
-This plugin provides per-step CLI scripts at `${CLAUDE_PLUGIN_ROOT}/scripts/`.
-
-```bash
-# Run full pipeline
-python ${CLAUDE_PLUGIN_ROOT}/scripts/rnaseq_run.py -c configs/analysis_case.yaml --steps 1a-5b
-
-# Run a single step
-python ${CLAUDE_PLUGIN_ROOT}/scripts/rnaseq_de.py -c configs/analysis_case.yaml
-
-# List available steps
-python ${CLAUDE_PLUGIN_ROOT}/scripts/rnaseq_run.py --list-steps
-
-# Project setup
-python ${CLAUDE_PLUGIN_ROOT}/scripts/rnaseq_setup.py
-```
-
----
-
 ## Behavior Routing
 
 Based on the detection results above, choose the corresponding behavior:
 
 ### Case A: New Project (analysis_case.yaml is NOT_FOUND)
 
-**First, scaffold the project directory structure:**
+**First, determine the project folder name:**
+- Extract a short identifier from $ARGUMENTS (e.g. "run_test" from "创建1个run_test的转录组分析项目")
+- If no name can be parsed, use `rna_project` as the default
+- Create and scaffold inside that subfolder:
 
 ```bash
-mkdir -p configs inputs/ref results
-cp ${CLAUDE_PLUGIN_ROOT}/configs/analysis_case.template.yaml configs/analysis_case.yaml
+PROJECT_DIR=<parsed_name_or_rna_project>
+mkdir -p ${PROJECT_DIR}/configs ${PROJECT_DIR}/inputs/ref ${PROJECT_DIR}/results
+cp ${CLAUDE_PLUGIN_ROOT}/configs/analysis_case.template.yaml ${PROJECT_DIR}/configs/analysis_case.yaml
 ```
 
-Then enter the interactive setup wizard. Read [`references/rnaseq-setup-wizard.md`](references/rnaseq-setup-wizard.md) and follow the 8-round protocol to fill in the config.
+Then enter the interactive setup wizard. Read [`references/wizard-1-basics.md`](references/wizard-1-basics.md) and follow the staged protocol. All subsequent file operations (config read/write, data scan, results) use `${PROJECT_DIR}/` as the base. Each stage file directs to the next — load only the current stage.
 
 ### Case B: Configured but Not Run (yaml exists, no results)
 
@@ -114,91 +98,21 @@ Handle the request directly by reading the relevant reference file below.
 
 ---
 
-## Core Concepts
+## Reference Index
 
-- **Analysis Case**: A pairwise DE comparison defined by `configs/analysis_case.yaml`
-- **Module**: A group of related analysis steps (6 modules, numbered 0-5)
-- **Step**: An atomic analysis unit within a module, exports `run(cfg)`
-- **Hidden Preprocessing**: Steps 0a-0d auto-trigger when gene_counts.tsv is missing. When `remote.enabled` is true, these run on a remote server via MCP remote-linux — see [`Remote Preprocessing`](references/rnaseq-remote-preprocessing.md)
-- **Config**: `configs/analysis_case.yaml` is the sole user-editable entry point
+Step references (read on demand):
+- `1a` Gene Filtering → `references/rnaseq-gene-filtering.md`
+- `2a` Expression / `2b` Correlation / `2c` PCA / `2d` Dendrogram → `references/rnaseq-{name}.md`
+- `3a` DE Screening / `3b` GO / `3c` KEGG / `3d` GSEA → `references/rnaseq-{name}.md`
+- `4a` Transporter / `4b` Temporal Causality / `4c` Heterologous / `4d` Fermentation → `references/rnaseq-{name}.md`
+- `5a` Gene Clustering / `5b` Cluster Deep-Dive → `references/rnaseq-{name}.md`
 
-## Pipeline Architecture
-
-```
-analysis_case.yaml -> prepare_analysis_case -> runner -> step modules
-                                                         |
-Module 0 (hidden): HISAT2 Index -> Fastp -> HISAT2 Align -> HTSeq Count
-Module 1: Gene Filtering
-Module 2: Expression | Correlation | PCA | Dendrogram
-Module 3: DE Screening -> GO Enrichment | KEGG Enrichment | GSEA
-Module 4: Transporter | Temporal Causality | Heterologous Genes | Fermentation
-Module 5: Gene Clustering -> Cluster Deep-Dive
-```
-
----
-
-## Operations
-
-| Operation | Description |
-|-----------|-------------|
-| [`Setup Wizard`](references/rnaseq-setup-wizard.md) | Interactive project setup — generates analysis_case.yaml |
-| [`Run Pipeline`](references/rnaseq-run-pipeline.md) | Execute analysis steps (full, partial, dry-run, resume) |
-| [`Grid Search`](references/rnaseq-grid-search.md) | Parameter optimization for filtering and preprocessing |
-| [`Remote Preprocessing`](references/rnaseq-remote-preprocessing.md) | Run steps 0a-0d on remote server via MCP remote-linux |
-
----
-
-## Pipeline Steps
-
-### Normalization
-
-| Step | ID | Description | Depends On |
-|------|----|-------------|------------|
-| [`Gene Filtering`](references/rnaseq-gene-filtering.md) | 1a | CPM/TPM normalization + low-expression filtering | -- |
-
-### Sample Analysis
-
-| Step | ID | Description | Depends On |
-|------|----|-------------|------------|
-| [`Expression Summary`](references/rnaseq-expression-summary.md) | 2a | Per-sample detected genes by expression bin | 1a |
-| [`Correlation`](references/rnaseq-correlation.md) | 2b | Sample-to-sample correlation heatmap | 1a |
-| [`PCA`](references/rnaseq-pca.md) | 2c | Principal component analysis | 1a |
-| [`Dendrogram`](references/rnaseq-dendrogram.md) | 2d | Hierarchical clustering dendrogram | 1a |
-
-### Differential Analysis
-
-| Step | ID | Description | Depends On |
-|------|----|-------------|------------|
-| [`DE Screening`](references/rnaseq-de-screening.md) | 3a | DESeq2 Wald test, volcano/MA plots | 1a |
-| [`GO Enrichment`](references/rnaseq-go-enrichment.md) | 3b | Gene Ontology (BP/MF/CC) enrichment | 3a |
-| [`KEGG Enrichment`](references/rnaseq-kegg-enrichment.md) | 3c | KEGG pathway enrichment | 3a |
-| [`GSEA`](references/rnaseq-gsea.md) | 3d | Gene Set Enrichment Analysis | 3a |
-
-### Advanced Analysis
-
-| Step | ID | Description | Depends On |
-|------|----|-------------|------------|
-| [`Transporter & Aminopeptidase`](references/rnaseq-transporter-aminopeptidase.md) | 4a | Substrate classification and expression trends | 3a |
-| [`Temporal Causality`](references/rnaseq-temporal-causality.md) | 4b | Time-series cross-correlation | 3a |
-| [`Heterologous Genes`](references/rnaseq-heterologous-genes.md) | 4c | Engineered transgene expression analysis | 1a |
-| [`Fermentation Overview`](references/rnaseq-fermentation-overview.md) | 4d | Fermentation metrics summary | -- |
-
-### Cluster Analysis
-
-| Step | ID | Description | Depends On |
-|------|----|-------------|------------|
-| [`Gene Clustering`](references/rnaseq-gene-clustering.md) | 5a | K-means clustering on top variable genes | 1a |
-| [`Cluster Deep-Dive`](references/rnaseq-cluster-deepdive.md) | 5b | Per-cluster enrichment and expression | 5a |
-
-**Step selection syntax**: `all` | `1a-2d` | `1a,3b,5a` | `normalization` | `1-3`
-
----
-
-## Guides
-
-| Guide | Description |
-|-------|-------------|
-| [`Config Reference`](references/rnaseq-config-reference.md) | Per-field documentation for analysis_case.yaml |
-| [`Extend: Add Step`](references/rnaseq-extend-step.md) | Step development guide, templates, API reference |
-| [`Remote Deployment`](references/rnaseq-remote-deployment.md) | Deploy shared pipeline on remote server |
-| [`Troubleshooting`](references/rnaseq-troubleshooting.md) | Common errors and fixes |
+Operation references:
+- Setup Wizard → `references/wizard-1-basics.md` (staged: 1-basics → 2-data → 3-remote → 4-analysis → 5-confirm)
+- Run Pipeline → `references/rnaseq-run-pipeline.md`
+- Grid Search → `references/rnaseq-grid-search.md`
+- Remote Preprocessing → `references/rnaseq-remote-preprocessing.md`
+- Config Reference → `references/rnaseq-config-reference.md`
+- Extend Step → `references/rnaseq-extend-step.md`
+- Troubleshooting → `references/rnaseq-troubleshooting.md`
+- Overview (concepts, architecture) → `references/rnaseq-overview.md`

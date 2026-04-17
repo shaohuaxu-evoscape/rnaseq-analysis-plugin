@@ -1,0 +1,131 @@
+run_name: "analysis_case_01"
+
+module1_overrides: {}
+
+batches:
+  batch1:
+    gene_counts: ""          # path to gene_counts.tsv, or leave empty to auto-detect
+    raw_fastq_dir: ""        # path to raw FASTQ directory (used if gene_counts not found)
+
+target_conditions:
+  condition1:
+    - batch: batch1
+      condition: R1
+  condition2:
+    - batch: batch1
+      condition: R2
+
+project:
+  name: ""
+  organism: ""
+  strain: ""
+  organism_taxid: 0          # NCBI taxonomy ID (required for GO/KEGG enrichment)
+  gene_id_prefix: ""         # Gene name prefix matching count matrix gene IDs
+
+experiment:
+  timepoints: []             # Leave empty to auto-detect all shared timepoints
+
+paths:
+  reference_genome: ""       # Reference genome FASTA (for HISAT2 indexing)
+  reference_gtf: ""          # Gene annotation GTF (for gene length / htseq-count)
+
+preprocessing:
+  threads: 8
+  test_n_samples: 0
+  fastp:
+    enabled: true
+    cut_mean_quality: 20
+    qualified_quality_phred: 20
+    unqualified_percent_limit: 40
+    length_required: 50
+  hisat2_index:
+    enabled: true
+  hisat2_align:
+    enabled: true
+  htseq_count:
+    enabled: true
+
+normalization:
+  method: "tpm"              # "cpm" | "tpm" | "fpkm"
+  log_transform: true
+  pseudocount: 1
+  gene_filtering:
+    min_expr: 1.0
+    min_samples: 2
+
+sample_analysis:
+  expression_summary:
+    enabled: true
+    stats: ["mean", "median", "cv"]
+  correlation:
+    enabled: true
+    method: "pearson"
+    plot_upper_triangle: true
+    annot_fontsize: 8
+  pca:
+    enabled: true
+    n_components: 5
+    plot_pairs: [[1, 2], [1, 3]]
+  clustering:
+    enabled: true
+    top_n_genes: 2000
+    k_range: [4, 12]
+    fixed_k: 7
+    random_state: 42
+
+differential_analysis:
+  de_screening:
+    enabled: true
+    method: "deseq2_wald"
+    fdr_threshold: 0.05
+    log2fc_threshold: 0.585
+    fdr_method: "bh"
+  go_enrichment:
+    enabled: true
+    organism_taxid: 0
+    ontologies: ["BP", "MF", "CC"]
+    sig_threshold: 0.05
+    min_term_genes: 5
+    max_term_genes: 500
+    top_n_plot: 20
+  kegg_enrichment:
+    enabled: true
+    organism: ""
+    sig_threshold: 0.05
+    min_pathway_genes: 5
+    max_pathway_genes: 500
+    top_n_plot: 20
+  gsea:
+    enabled: true
+    ranking_metric: "mean_log2fc"
+    min_size: 10
+    max_size: 500
+    permutations: 1000
+
+advanced_analysis:
+  transporter_aminopeptidase:
+    enabled: true
+  temporal_causality:
+    enabled: true
+  heterologous_genes:
+    enabled: true
+    gene_list: []
+  fermentation_overview:
+    enabled: true
+    data_file: "inputs/fermentation_data.xlsx"
+    sheet_name: "Sheet1"
+
+cluster_analysis:
+  cluster_deepdive:
+    enabled: true
+
+plot:
+  dpi: 300
+  format: "png"
+  style: "nature"
+  colormap: "RdPu"
+  recipe_colors:
+    condition1: "#4477AA"
+    condition2: "#EE6677"
+  font_family: "Arial"
+  figsize_default: [3.5, 2.8]
